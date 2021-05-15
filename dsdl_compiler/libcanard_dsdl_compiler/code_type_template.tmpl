@@ -39,7 +39,8 @@
 uint32_t ${type_name}_encode_internal(${type_name}* source,
   void* msg_buf,
   uint32_t offset,
-  uint8_t CANARD_MAYBE_UNUSED(root_item))
+  uint8_t CANARD_MAYBE_UNUSED(root_item),
+  bool tao_enabled)
 {
   %if union
     // Max Union Tag Value
@@ -79,7 +80,7 @@ uint32_t ${type_name}_encode_internal(${type_name}* source,
     canardEncodeScalar(msg_buf, offset, ${f.array_max_size_bit_len}, (void*)&source->${'%s' % ((f.name + '.len'))});
     offset += ${f.array_max_size_bit_len};
                     %else
-    if (! root_item)
+    if (! root_item || ! tao_enabled)
     {
         // - Add array length
         canardEncodeScalar(msg_buf, offset, ${f.array_max_size_bit_len}, (void*)&source->${'%s' % ((f.name + '.len'))});
@@ -96,7 +97,7 @@ uint32_t ${type_name}_encode_internal(${type_name}* source,
     for (c = 0; c < source->${'%s' % ((f.name + '.len'))}; c++)
     {
                 %if f.cpp_type_category == t.CATEGORY_COMPOUND:
-        offset += ${f.cpp_type}_encode_internal(&source->${'%s' % ((f.name + '.data'))}[c], msg_buf, offset, 0);
+        offset += ${f.cpp_type}_encode_internal(&source->${'%s' % ((f.name + '.data'))}[c], msg_buf, offset, 0, tao_enabled);
                 %else
         canardEncodeScalar(msg_buf,
                            offset,
@@ -121,7 +122,7 @@ uint32_t ${type_name}_encode_internal(${type_name}* source,
         %elif f.type_category == t.CATEGORY_COMPOUND:
 
     // Compound
-    offset = ${f.cpp_type}_encode_internal(&source->${f.name}, msg_buf, offset, 0);
+    offset = ${f.cpp_type}_encode_internal(&source->${f.name}, msg_buf, offset, 0, tao_enabled);
         %elif f.type_category == t.CATEGORY_PRIMITIVE and f.cpp_type == "float" and f.bitlen == 16:
 
     // float16 special handling
@@ -158,11 +159,11 @@ uint32_t ${type_name}_encode_internal(${type_name}* source,
   * @param msg_buf: Pointer to msg storage
   * @retval returns message length as bytes
   */
-uint32_t ${type_name}_encode(${type_name}* source, void* msg_buf)
+uint32_t ${type_name}_encode(${type_name}* source, void* msg_buf, bool tao_enabled)
 {
     uint32_t offset = 0;
 
-    offset = ${type_name}_encode_internal(source, msg_buf, offset, 1);
+    offset = ${type_name}_encode_internal(source, msg_buf, offset, 1, tao_enabled);
 
     return (offset + 7 ) / 8;
 }
@@ -183,7 +184,8 @@ int32_t ${type_name}_decode_internal(
   uint16_t CANARD_MAYBE_UNUSED(payload_len),
   ${type_name}* dest,
   uint8_t** CANARD_MAYBE_UNUSED(dyn_arr_buf),
-  int32_t offset)
+  int32_t offset,
+  bool tao_enabled)
 {
     int32_t ret = 0;
     %if has_array
@@ -221,7 +223,7 @@ int32_t ${type_name}_decode_internal(
                 %if f.last_item
                     %if f.bitlen > 7
     //  - Last item in struct & Root item & (Array Size > 8 bit), tail array optimization
-    if (payload_len)
+    if (payload_len && tao_enabled)
     {
         //  - Calculate Array length from MSG length
         dest->${'%s' % ((f.name + '.len'))} = ((payload_len * 8) - offset ) / ${f.bitlen}; // ${f.bitlen} bit array item size
@@ -279,7 +281,8 @@ int32_t ${type_name}_decode_internal(
                                                 0,
                                                 &dest->${'%s' % ((f.name + '.data'))}[c],
                                                 dyn_arr_buf,
-                                                offset);
+                                                offset,
+                                                tao_enabled);
                     %else
         if (dyn_arr_buf)
         {
@@ -317,7 +320,7 @@ int32_t ${type_name}_decode_internal(
         %elif f.type_category == t.CATEGORY_COMPOUND:
 
     // Compound
-    offset = ${f.cpp_type}_decode_internal(transfer, payload_len, &dest->${f.name}, dyn_arr_buf, offset);
+    offset = ${f.cpp_type}_decode_internal(transfer, payload_len, &dest->${f.name}, dyn_arr_buf, offset, tao_enabled);
     if (offset < 0)
     {
         ret = offset;
@@ -377,7 +380,8 @@ ${type_name}_error_exit:
 int32_t ${type_name}_decode(const CanardRxTransfer* transfer,
   uint16_t payload_len,
   ${type_name}* dest,
-  uint8_t** dyn_arr_buf)
+  uint8_t** dyn_arr_buf,
+  bool tao_enabled)
 {
     const int32_t offset = 0;
     int32_t ret = 0;
@@ -388,7 +392,7 @@ int32_t ${type_name}_decode(const CanardRxTransfer* transfer,
         ((uint8_t*)dest)[c] = 0x00;
     }
 
-    ret = ${type_name}_decode_internal(transfer, payload_len, dest, dyn_arr_buf, offset);
+    ret = ${type_name}_decode_internal(transfer, payload_len, dest, dyn_arr_buf, offset, tao_enabled);
 
     return ret;
 }
@@ -396,12 +400,13 @@ int32_t ${type_name}_decode(const CanardRxTransfer* transfer,
 uint32_t ${type_name}_encode_internal(${type_name}* CANARD_MAYBE_UNUSED(source),
   void* CANARD_MAYBE_UNUSED(msg_buf),
   uint32_t offset,
-  uint8_t CANARD_MAYBE_UNUSED(root_item))
+  uint8_t CANARD_MAYBE_UNUSED(root_item),
+  bool tao_enabled)
 {
     return offset;
 }
 
-uint32_t ${type_name}_encode(${type_name}* CANARD_MAYBE_UNUSED(source), void* CANARD_MAYBE_UNUSED(msg_buf))
+uint32_t ${type_name}_encode(${type_name}* CANARD_MAYBE_UNUSED(source), void* CANARD_MAYBE_UNUSED(msg_buf), bool tao_enabled)
 {
     return 0;
 }
@@ -410,7 +415,8 @@ int32_t ${type_name}_decode_internal(const CanardRxTransfer* CANARD_MAYBE_UNUSED
   uint16_t CANARD_MAYBE_UNUSED(payload_len),
   ${type_name}* CANARD_MAYBE_UNUSED(dest),
   uint8_t** CANARD_MAYBE_UNUSED(dyn_arr_buf),
-  int32_t offset)
+  int32_t offset,
+  bool tao_enabled)
 {
     return offset;
 }
@@ -418,7 +424,8 @@ int32_t ${type_name}_decode_internal(const CanardRxTransfer* CANARD_MAYBE_UNUSED
 int32_t ${type_name}_decode(const CanardRxTransfer* CANARD_MAYBE_UNUSED(transfer),
   uint16_t CANARD_MAYBE_UNUSED(payload_len),
   ${type_name}* CANARD_MAYBE_UNUSED(dest),
-  uint8_t** CANARD_MAYBE_UNUSED(dyn_arr_buf))
+  uint8_t** CANARD_MAYBE_UNUSED(dyn_arr_buf),
+  bool tao_enabled)
 {
     return 0;
 }

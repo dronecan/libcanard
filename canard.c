@@ -137,7 +137,8 @@ int16_t canardBroadcast(CanardInstance* ins,
                         uint8_t* inout_transfer_id,
                         uint8_t priority,
                         const void* payload,
-                        uint16_t payload_len)
+                        uint16_t payload_len,
+                        bool canfd)
 {
     if (payload == NULL && payload_len > 0)
     {
@@ -174,14 +175,28 @@ int16_t canardBroadcast(CanardInstance* ins,
     {
         can_id = ((uint32_t) priority << 24U) | ((uint32_t) data_type_id << 8U) | (uint32_t) canardGetLocalNodeID(ins);
 
+#if CANARD_ENABLE_CANFD
+        if ((payload_len > 7 && !canfd) || (payload_len > 63 && canfd))
+#else
         if (payload_len > 7)
+#endif
         {
             crc = crcAddSignature(crc, data_type_signature);
             crc = crcAdd(crc, payload, payload_len);
+#if CANARD_ENABLE_CANFD
+            if (payload_len > 63 && canfd) {
+                uint8_t empty = 0;
+                uint8_t padding = dlcToDataLength(dataLengthToDlc(((payload_len+2) % 63)+1))-1;
+                padding-=((payload_len+2) % 63);
+                for (uint8_t i=0; i<padding; i++) {
+                    crc = crcAddByte(crc, empty);
+                }
+            }
+#endif
         }
     }
 
-    const int16_t result = enqueueTxFrames(ins, can_id, inout_transfer_id, crc, payload, payload_len);
+    const int16_t result = enqueueTxFrames(ins, can_id, inout_transfer_id, crc, payload, payload_len, canfd);
 
     incrementTransferID(inout_transfer_id);
 
@@ -196,7 +211,8 @@ int16_t canardRequestOrRespond(CanardInstance* ins,
                                uint8_t priority,
                                CanardRequestResponse kind,
                                const void* payload,
-                               uint16_t payload_len)
+                               uint16_t payload_len,
+                               bool canfd)
 {
     if (payload == NULL && payload_len > 0)
     {
@@ -216,13 +232,29 @@ int16_t canardRequestOrRespond(CanardInstance* ins,
                             (1U << 7U) | (uint32_t) canardGetLocalNodeID(ins);
     uint16_t crc = 0xFFFFU;
 
+
+#if CANARD_ENABLE_CANFD
+    if ((payload_len > 7 && !canfd) || (payload_len > 63 && canfd))
+#else
     if (payload_len > 7)
+#endif
     {
         crc = crcAddSignature(crc, data_type_signature);
         crc = crcAdd(crc, payload, payload_len);
+#if CANARD_ENABLE_CANFD
+        if (payload_len > 63 && canfd) {
+            uint8_t empty = 0;
+            uint8_t padding = dlcToDataLength(dataLengthToDlc(((payload_len+2) % 63)+1))-1;
+            padding-=((payload_len+2) % 63);
+            for (uint8_t i=0; i<padding; i++) {
+                crc = crcAddByte(crc, empty);
+            }
+        }
+#endif
     }
 
-    const int16_t result = enqueueTxFrames(ins, can_id, inout_transfer_id, crc, payload, payload_len);
+
+    const int16_t result = enqueueTxFrames(ins, can_id, inout_transfer_id, crc, payload, payload_len, canfd);
 
     if (kind == CanardRequest)                      // Response Transfer ID must not be altered
     {
@@ -453,7 +485,8 @@ int16_t canardHandleRxFrame(CanardInstance* ins, const CanardCANFrame* frame, ui
             .transfer_type = (uint8_t)transfer_type,
             .transfer_id = TRANSFER_ID_FROM_TAIL_BYTE(tail_byte),
             .priority = priority,
-            .source_node_id = source_node_id
+            .source_node_id = source_node_id,
+            .canfd = frame->canfd
         };
 
         rx_state->buffer_blocks = NULL;     // Block list ownership has been transferred to rx_transfer!
@@ -868,13 +901,59 @@ CANARD_INTERNAL void incrementTransferID(uint8_t* transfer_id)
     }
 }
 
+CANARD_INTERNAL uint8_t dlcToDataLength(uint8_t dlc) {
+    /*
+    Data Length Code      9  10  11  12  13  14  15
+    Number of data bytes 12  16  20  24  32  48  64
+    */
+    if (dlc <= 8) {
+        return dlc;
+    } else if (dlc == 9) {
+        return 12;
+    } else if (dlc == 10) {
+        return 16;
+    } else if (dlc == 11) {
+        return 20;
+    } else if (dlc == 12) {
+        return 24;
+    } else if (dlc == 13) {
+        return 32;
+    } else if (dlc == 14) {
+        return 48;
+    }
+    return 64;
+}
+
+CANARD_INTERNAL uint8_t dataLengthToDlc(uint8_t data_length) {
+    if (data_length <= 8) {
+        return data_length;
+    } else if (data_length <= 12) {
+        return 9;
+    } else if (data_length <= 16) {
+        return 10;
+    } else if (data_length <= 20) {
+        return 11;
+    } else if (data_length <= 24) {
+        return 12;
+    } else if (data_length <= 32) {
+        return 13;
+    } else if (data_length <= 48) {
+        return 14;
+    }
+    return 15;
+}
+
 CANARD_INTERNAL int16_t enqueueTxFrames(CanardInstance* ins,
                                         uint32_t can_id,
                                         uint8_t* transfer_id,
                                         uint16_t crc,
                                         const uint8_t* payload,
-                                        uint16_t payload_len)
+                                        uint16_t payload_len,
+                                        bool canfd)
 {
+#if !CANARD_ENABLE_CANFD
+    (void)canfd;
+#endif
     CANARD_ASSERT(ins != NULL);
     CANARD_ASSERT((can_id & CANARD_CAN_EXT_ID_MASK) == can_id);            // Flags must be cleared
 
@@ -889,8 +968,12 @@ CANARD_INTERNAL int16_t enqueueTxFrames(CanardInstance* ins,
     }
 
     int16_t result = 0;
-
-    if (payload_len < CANARD_CAN_FRAME_MAX_DATA_LEN)                        // Single frame transfer
+#if CANARD_ENABLE_CANFD
+    uint8_t frame_max_data_len = canfd ? CANARD_CANFD_FRAME_MAX_DATA_LEN:CANARD_CAN_FRAME_MAX_DATA_LEN;
+#else
+    uint8_t frame_max_data_len = CANARD_CAN_FRAME_MAX_DATA_LEN;
+#endif
+    if (payload_len < frame_max_data_len)                        // Single frame transfer
     {
         CanardTxQueueItem* queue_item = createTxItem(&ins->allocator);
         if (queue_item == NULL)
@@ -900,10 +983,13 @@ CANARD_INTERNAL int16_t enqueueTxFrames(CanardInstance* ins,
 
         memcpy(queue_item->frame.data, payload, payload_len);
 
+        payload_len = dlcToDataLength(dataLengthToDlc(payload_len+1))-1;
         queue_item->frame.data_len = (uint8_t)(payload_len + 1);
         queue_item->frame.data[payload_len] = (uint8_t)(0xC0U | (*transfer_id & 31U));
         queue_item->frame.id = can_id | CANARD_CAN_FRAME_EFF;
-
+#if CANARD_ENABLE_CANFD
+        queue_item->frame.canfd = canfd;
+#endif
         pushTxQueue(ins, queue_item);
         result++;
     }
@@ -936,16 +1022,20 @@ CANARD_INTERNAL int16_t enqueueTxFrames(CanardInstance* ins,
                 i = 0;
             }
 
-            for (; i < (CANARD_CAN_FRAME_MAX_DATA_LEN - 1) && data_index < payload_len; i++, data_index++)
+            for (; i < (frame_max_data_len - 1) && data_index < payload_len; i++, data_index++)
             {
                 queue_item->frame.data[i] = payload[data_index];
             }
             // tail byte
             sot_eot = (data_index == payload_len) ? (uint8_t)0x40 : sot_eot;
-
+            
+            i = dlcToDataLength(dataLengthToDlc(i+1))-1;
             queue_item->frame.data[i] = (uint8_t)(sot_eot | ((uint32_t)toggle << 5U) | ((uint32_t)*transfer_id & 31U));
             queue_item->frame.id = can_id | CANARD_CAN_FRAME_EFF;
             queue_item->frame.data_len = (uint8_t)(i + 1);
+#if CANARD_ENABLE_CANFD
+            queue_item->frame.canfd = canfd;
+#endif
             pushTxQueue(ins, queue_item);
 
             result++;

@@ -81,10 +81,16 @@ extern "C" {
 #define CANARD_ERROR_RX_BAD_CRC                        17
 
 /// The size of a memory block in bytes.
+#if CANARD_ENABLE_CANFD
+#define CANARD_MEM_BLOCK_SIZE                       128U
+#else
 #define CANARD_MEM_BLOCK_SIZE                       32U
+#endif
 
-/// This will be changed when the support for CAN FD is added
 #define CANARD_CAN_FRAME_MAX_DATA_LEN               8U
+#if CANARD_ENABLE_CANFD
+#define CANARD_CANFD_FRAME_MAX_DATA_LEN             64U
+#endif
 
 /// Node ID values. Refer to the specification for more info.
 #define CANARD_BROADCAST_NODE_ID                    0
@@ -130,8 +136,13 @@ typedef struct
      *  - CANARD_CAN_FRAME_ERR
      */
     uint32_t id;
+#if CANARD_ENABLE_CANFD
+    uint8_t data[CANARD_CANFD_FRAME_MAX_DATA_LEN];
+#else
     uint8_t data[CANARD_CAN_FRAME_MAX_DATA_LEN];
+#endif
     uint8_t data_len;
+    bool canfd;
 } CanardCANFrame;
 
 /**
@@ -319,6 +330,7 @@ struct CanardRxTransfer
     uint8_t transfer_id;                    ///< 0 to 31
     uint8_t priority;                       ///< 0 to 31
     uint8_t source_node_id;                 ///< 1 to 127, or 0 if the source is anonymous
+    bool canfd;                             ///< frame canfd
 };
 
 /**
@@ -377,7 +389,9 @@ int16_t canardBroadcast(CanardInstance* ins,            ///< Library instance
                         uint8_t* inout_transfer_id,     ///< Pointer to a persistent variable containing the transfer ID
                         uint8_t priority,               ///< Refer to definitions CANARD_TRANSFER_PRIORITY_*
                         const void* payload,            ///< Transfer payload
-                        uint16_t payload_len);          ///< Length of the above, in bytes
+                        uint16_t payload_len,           ///< Length of the above, in bytes
+                        bool canfd);                    ///< Is the frame canfd
+
 
 /**
  * Sends a request or a response transfer.
@@ -404,7 +418,8 @@ int16_t canardRequestOrRespond(CanardInstance* ins,             ///< Library ins
                                uint8_t priority,                ///< Refer to definitions CANARD_TRANSFER_PRIORITY_*
                                CanardRequestResponse kind,      ///< Refer to CanardRequestResponse
                                const void* payload,             ///< Transfer payload
-                               uint16_t payload_len);           ///< Length of the above, in bytes
+                               uint16_t payload_len,            ///< Length of the above, in bytes
+                               bool canfd);                       ///< Is the frame canfd
 
 /**
  * Returns a pointer to the top priority frame in the TX queue.
@@ -530,9 +545,15 @@ uint16_t canardConvertNativeFloatToFloat16(float value);
 float canardConvertFloat16ToNativeFloat(uint16_t value);
 
 /// Abort the build if the current platform is not supported.
+#if CANARD_ENABLE_CANFD
+CANARD_STATIC_ASSERT(((uint32_t)CANARD_MULTIFRAME_RX_PAYLOAD_HEAD_SIZE) < 128,
+                     "Platforms where sizeof(void*) > 4 are not supported. "
+                     "On AMD64 use 32-bit mode (e.g. GCC flag -m32).");
+#else
 CANARD_STATIC_ASSERT(((uint32_t)CANARD_MULTIFRAME_RX_PAYLOAD_HEAD_SIZE) < 32,
                      "Platforms where sizeof(void*) > 4 are not supported. "
                      "On AMD64 use 32-bit mode (e.g. GCC flag -m32).");
+#endif
 
 #ifdef __cplusplus
 }

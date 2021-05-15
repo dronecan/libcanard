@@ -85,13 +85,17 @@ CANARD_INTERNAL void incrementTransferID(uint8_t* transfer_id);
 CANARD_INTERNAL uint64_t releaseStatePayload(CanardInstance* ins,
                                              CanardRxState* rxstate);
 
+CANARD_INTERNAL uint8_t dlcToDataLength(uint8_t dlc);
+CANARD_INTERNAL uint8_t dataLengthToDlc(uint8_t data_length);
+
 /// Returns the number of frames enqueued
 CANARD_INTERNAL int16_t enqueueTxFrames(CanardInstance* ins,
                                         uint32_t can_id,
                                         uint8_t* transfer_id,
                                         uint16_t crc,
                                         const uint8_t* payload,
-                                        uint16_t payload_len);
+                                        uint16_t payload_len,
+                                        bool canfd);
 
 CANARD_INTERNAL void copyBitArray(const uint8_t* src,
                                   uint32_t src_offset,
