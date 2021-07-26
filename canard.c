@@ -849,7 +849,7 @@ float canardConvertFloat16ToNativeFloat(uint16_t value)
  */
 CANARD_INTERNAL int16_t computeTransferIDForwardDistance(uint8_t a, uint8_t b)
 {
-    int16_t d = (int16_t)(b - a);
+    int16_t d = (int16_t)(a - b);
     if (d < 0)
     {
         d = (int16_t)(d + (int16_t)(1U << TRANSFER_ID_BIT_LEN));
