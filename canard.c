@@ -137,8 +137,11 @@ int16_t canardBroadcast(CanardInstance* ins,
                         uint8_t* inout_transfer_id,
                         uint8_t priority,
                         const void* payload,
-                        uint16_t payload_len,
-                        bool canfd)
+                        uint16_t payload_len
+#if CANARD_ENABLE_CANFD
+                        ,bool canfd
+#endif
+)
 {
     if (payload == NULL && payload_len > 0)
     {
@@ -196,7 +199,11 @@ int16_t canardBroadcast(CanardInstance* ins,
         }
     }
 
-    const int16_t result = enqueueTxFrames(ins, can_id, inout_transfer_id, crc, payload, payload_len, canfd);
+    const int16_t result = enqueueTxFrames(ins, can_id, inout_transfer_id, crc, payload, payload_len
+#if CANARD_ENABLE_CANFD
+                        ,canfd
+#endif
+);
 
     incrementTransferID(inout_transfer_id);
 
@@ -211,8 +218,11 @@ int16_t canardRequestOrRespond(CanardInstance* ins,
                                uint8_t priority,
                                CanardRequestResponse kind,
                                const void* payload,
-                               uint16_t payload_len,
-                               bool canfd)
+                               uint16_t payload_len
+#if CANARD_ENABLE_CANFD
+                               ,bool canfd
+#endif
+)
 {
     if (payload == NULL && payload_len > 0)
     {
@@ -254,7 +264,11 @@ int16_t canardRequestOrRespond(CanardInstance* ins,
     }
 
 
-    const int16_t result = enqueueTxFrames(ins, can_id, inout_transfer_id, crc, payload, payload_len, canfd);
+    const int16_t result = enqueueTxFrames(ins, can_id, inout_transfer_id, crc, payload, payload_len
+#if CANARD_ENABLE_CANFD
+                        , canfd
+#endif
+);
 
     if (kind == CanardRequest)                      // Response Transfer ID must not be altered
     {
@@ -486,7 +500,10 @@ int16_t canardHandleRxFrame(CanardInstance* ins, const CanardCANFrame* frame, ui
             .transfer_id = TRANSFER_ID_FROM_TAIL_BYTE(tail_byte),
             .priority = priority,
             .source_node_id = source_node_id,
+
+#if CANARD_ENABLE_CANFD
             .canfd = frame->canfd
+#endif
         };
 
         rx_state->buffer_blocks = NULL;     // Block list ownership has been transferred to rx_transfer!
@@ -948,12 +965,12 @@ CANARD_INTERNAL int16_t enqueueTxFrames(CanardInstance* ins,
                                         uint8_t* transfer_id,
                                         uint16_t crc,
                                         const uint8_t* payload,
-                                        uint16_t payload_len,
-                                        bool canfd)
-{
-#if !CANARD_ENABLE_CANFD
-    (void)canfd;
+                                        uint16_t payload_len
+#if CANARD_ENABLE_CANFD
+                                        ,bool canfd
 #endif
+)
+{
     CANARD_ASSERT(ins != NULL);
     CANARD_ASSERT((can_id & CANARD_CAN_EXT_ID_MASK) == can_id);            // Flags must be cleared
 

@@ -45,6 +45,12 @@ extern "C" {
 #define CANARD_VERSION_MAJOR                        0
 #define CANARD_VERSION_MINOR                        2
 
+
+#ifndef CANARD_ENABLE_CANFD
+#define CANARD_ENABLE_CANFD                         0
+#endif
+
+
 /// By default this macro resolves to the standard assert(). The user can redefine this if necessary.
 #ifndef CANARD_ASSERT
 # define CANARD_ASSERT(x)   assert(x)
@@ -142,7 +148,9 @@ typedef struct
     uint8_t data[CANARD_CAN_FRAME_MAX_DATA_LEN];
 #endif
     uint8_t data_len;
+#if CANARD_ENABLE_CANFD
     bool canfd;
+#endif
 } CanardCANFrame;
 
 /**
@@ -330,7 +338,9 @@ struct CanardRxTransfer
     uint8_t transfer_id;                    ///< 0 to 31
     uint8_t priority;                       ///< 0 to 31
     uint8_t source_node_id;                 ///< 1 to 127, or 0 if the source is anonymous
+#if CANARD_ENABLE_CANFD
     bool canfd;                             ///< frame canfd
+#endif
 };
 
 /**
@@ -389,8 +399,11 @@ int16_t canardBroadcast(CanardInstance* ins,            ///< Library instance
                         uint8_t* inout_transfer_id,     ///< Pointer to a persistent variable containing the transfer ID
                         uint8_t priority,               ///< Refer to definitions CANARD_TRANSFER_PRIORITY_*
                         const void* payload,            ///< Transfer payload
-                        uint16_t payload_len,           ///< Length of the above, in bytes
-                        bool canfd);                    ///< Is the frame canfd
+                        uint16_t payload_len            ///< Length of the above, in bytes
+#if CANARD_ENABLE_CANFD
+                        ,bool canfd                      ///< Is the frame canfd
+#endif
+                        );
 
 
 /**
@@ -418,8 +431,11 @@ int16_t canardRequestOrRespond(CanardInstance* ins,             ///< Library ins
                                uint8_t priority,                ///< Refer to definitions CANARD_TRANSFER_PRIORITY_*
                                CanardRequestResponse kind,      ///< Refer to CanardRequestResponse
                                const void* payload,             ///< Transfer payload
-                               uint16_t payload_len,            ///< Length of the above, in bytes
-                               bool canfd);                       ///< Is the frame canfd
+                               uint16_t payload_len             ///< Length of the above, in bytes
+#if CANARD_ENABLE_CANFD
+                                ,bool canfd                     ///< Is the frame canfd
+#endif
+                            );
 
 /**
  * Returns a pointer to the top priority frame in the TX queue.
