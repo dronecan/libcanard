@@ -51,6 +51,14 @@ extern "C" {
 #endif
 
 
+#ifndef CANARD_ENABLE_TAO_OPTION
+#if CANARD_ENABLE_CANFD
+#define CANARD_ENABLE_TAO_OPTION                    1
+#else
+#define CANARD_ENABLE_TAO_OPTION                    0
+#endif
+#endif
+
 /// By default this macro resolves to the standard assert(). The user can redefine this if necessary.
 #ifndef CANARD_ASSERT
 # define CANARD_ASSERT(x)   assert(x)
@@ -287,6 +295,10 @@ struct CanardInstance
     CanardTxQueueItem* tx_queue;                    ///< TX frames awaiting transmission
 
     void* user_reference;                           ///< User pointer that can link this instance with other objects
+
+#if CANARD_ENABLE_TAO_OPTION
+    bool tao_disabled;                              ///< True if TAO is disabled
+#endif
 };
 
 /**
@@ -338,6 +350,9 @@ struct CanardRxTransfer
     uint8_t transfer_id;                    ///< 0 to 31
     uint8_t priority;                       ///< 0 to 31
     uint8_t source_node_id;                 ///< 1 to 127, or 0 if the source is anonymous
+#if CANARD_ENABLE_TAO_OPTION
+    bool tao;
+#endif
 #if CANARD_ENABLE_CANFD
     bool canfd;                             ///< frame canfd
 #endif

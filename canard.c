@@ -394,7 +394,13 @@ int16_t canardHandleRxFrame(CanardInstance* ins, const CanardCANFrame* frame, ui
             .transfer_type = (uint8_t)transfer_type,
             .transfer_id = TRANSFER_ID_FROM_TAIL_BYTE(tail_byte),
             .priority = priority,
-            .source_node_id = source_node_id
+            .source_node_id = source_node_id,
+#if CANARD_ENABLE_CANFD
+            .canfd = frame->canfd,
+            .tao = !frame->canfd || ins->tao_disabled
+#elif CANARD_ENABLE_TAO_OPTION
+            .tao = ins->tao_disabled
+#endif
         };
 
         ins->on_reception(ins, &rx_transfer);
@@ -502,7 +508,10 @@ int16_t canardHandleRxFrame(CanardInstance* ins, const CanardCANFrame* frame, ui
             .source_node_id = source_node_id,
 
 #if CANARD_ENABLE_CANFD
-            .canfd = frame->canfd
+            .canfd = frame->canfd,
+            .tao = !frame->canfd || ins->tao_disabled
+#elif CANARD_ENABLE_TAO_OPTION
+            .tao = ins->tao_disabled
 #endif
         };
 
