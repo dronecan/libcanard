@@ -154,6 +154,13 @@ CANARD_INTERNAL void* allocateBlock(CanardPoolAllocator* allocator);
 CANARD_INTERNAL void freeBlock(CanardPoolAllocator* allocator,
                                void* p);
 
+CANARD_INTERNAL uint16_t calculateCRC(const void* payload, 
+                                      uint16_t payload_len, 
+                                      uint64_t data_type_signature
+#if CANARD_ENABLE_CANFD
+                                      ,bool canfd
+#endif
+);
 
 #ifdef __cplusplus
 }

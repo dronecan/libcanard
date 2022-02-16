@@ -177,26 +177,11 @@ int16_t canardBroadcast(CanardInstance* ins,
     else
     {
         can_id = ((uint32_t) priority << 24U) | ((uint32_t) data_type_id << 8U) | (uint32_t) canardGetLocalNodeID(ins);
-
+        crc = calculateCRC(payload, payload_len, data_type_signature,
 #if CANARD_ENABLE_CANFD
-        if ((payload_len > 7 && !canfd) || (payload_len > 63 && canfd))
-#else
-        if (payload_len > 7)
+                          canfd
 #endif
-        {
-            crc = crcAddSignature(crc, data_type_signature);
-            crc = crcAdd(crc, payload, payload_len);
-#if CANARD_ENABLE_CANFD
-            if (payload_len > 63 && canfd) {
-                uint8_t empty = 0;
-                uint8_t padding = dlcToDataLength(dataLengthToDlc(((payload_len+2) % 63)+1))-1;
-                padding-=((payload_len+2) % 63);
-                for (uint8_t i=0; i<padding; i++) {
-                    crc = crcAddByte(crc, empty);
-                }
-            }
-#endif
-        }
+        );
     }
 
     const int16_t result = enqueueTxFrames(ins, can_id, inout_transfer_id, crc, payload, payload_len
@@ -208,6 +193,35 @@ int16_t canardBroadcast(CanardInstance* ins,
     incrementTransferID(inout_transfer_id);
 
     return result;
+}
+
+CANARD_INTERNAL uint16_t calculateCRC(const void* payload, uint16_t payload_len, uint64_t data_type_signature
+#if CANARD_ENABLE_CANFD
+                        ,bool canfd
+#endif
+)
+{
+    uint16_t crc = 0xFFFFU;
+#if CANARD_ENABLE_CANFD
+    if ((payload_len > 7 && !canfd) || (payload_len > 63 && canfd))
+#else
+    if (payload_len > 7)
+#endif
+    {
+        crc = crcAddSignature(crc, data_type_signature);
+        crc = crcAdd(crc, payload, payload_len);
+#if CANARD_ENABLE_CANFD
+        if (payload_len > 63 && canfd) {
+            uint8_t empty = 0;
+            uint8_t padding = dlcToDataLength(dataLengthToDlc(((payload_len+2) % 63)+1))-1;
+            padding-=((payload_len+2) % 63);
+            for (uint8_t i=0; i<padding; i++) {
+                crc = crcAddByte(crc, empty);
+            }
+        }
+#endif
+    }
+    return crc;
 }
 
 int16_t canardRequestOrRespond(CanardInstance* ins,
@@ -240,28 +254,12 @@ int16_t canardRequestOrRespond(CanardInstance* ins,
     const uint32_t can_id = ((uint32_t) priority << 24U) | ((uint32_t) data_type_id << 16U) |
                             ((uint32_t) kind << 15U) | ((uint32_t) destination_node_id << 8U) |
                             (1U << 7U) | (uint32_t) canardGetLocalNodeID(ins);
-    uint16_t crc = 0xFFFFU;
 
-
+    uint16_t crc = calculateCRC(payload, payload_len, data_type_signature,
 #if CANARD_ENABLE_CANFD
-    if ((payload_len > 7 && !canfd) || (payload_len > 63 && canfd))
-#else
-    if (payload_len > 7)
+                        canfd
 #endif
-    {
-        crc = crcAddSignature(crc, data_type_signature);
-        crc = crcAdd(crc, payload, payload_len);
-#if CANARD_ENABLE_CANFD
-        if (payload_len > 63 && canfd) {
-            uint8_t empty = 0;
-            uint8_t padding = dlcToDataLength(dataLengthToDlc(((payload_len+2) % 63)+1))-1;
-            padding-=((payload_len+2) % 63);
-            for (uint8_t i=0; i<padding; i++) {
-                crc = crcAddByte(crc, empty);
-            }
-        }
-#endif
-    }
+    );
 
 
     const int16_t result = enqueueTxFrames(ins, can_id, inout_transfer_id, crc, payload, payload_len
