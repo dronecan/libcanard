@@ -94,7 +94,9 @@ void canardInit(CanardInstance* out_ins,
     out_ins->rx_states = NULL;
     out_ins->tx_queue = NULL;
     out_ins->user_reference = user_reference;
-
+#if CANARD_ENABLE_TAO_OPTION
+    out_ins->tao_disabled = false;
+#endif
     size_t pool_capacity = mem_arena_size / CANARD_MEM_BLOCK_SIZE;
     if (pool_capacity > 0xFFFFU)
     {
@@ -177,16 +179,16 @@ int16_t canardBroadcast(CanardInstance* ins,
     else
     {
         can_id = ((uint32_t) priority << 24U) | ((uint32_t) data_type_id << 8U) | (uint32_t) canardGetLocalNodeID(ins);
-        crc = calculateCRC(payload, payload_len, data_type_signature,
+        crc = calculateCRC(payload, payload_len, data_type_signature
 #if CANARD_ENABLE_CANFD
-                          canfd
+                            , canfd
 #endif
         );
     }
 
     const int16_t result = enqueueTxFrames(ins, can_id, inout_transfer_id, crc, payload, payload_len
 #if CANARD_ENABLE_CANFD
-                        ,canfd
+                        , canfd
 #endif
 );
 
@@ -255,9 +257,9 @@ int16_t canardRequestOrRespond(CanardInstance* ins,
                             ((uint32_t) kind << 15U) | ((uint32_t) destination_node_id << 8U) |
                             (1U << 7U) | (uint32_t) canardGetLocalNodeID(ins);
 
-    uint16_t crc = calculateCRC(payload, payload_len, data_type_signature,
+    uint16_t crc = calculateCRC(payload, payload_len, data_type_signature
 #if CANARD_ENABLE_CANFD
-                        canfd
+                        , canfd
 #endif
     );
 
@@ -395,9 +397,9 @@ int16_t canardHandleRxFrame(CanardInstance* ins, const CanardCANFrame* frame, ui
             .source_node_id = source_node_id,
 #if CANARD_ENABLE_CANFD
             .canfd = frame->canfd,
-            .tao = !frame->canfd || ins->tao_disabled
+            .tao = !(frame->canfd || ins->tao_disabled)
 #elif CANARD_ENABLE_TAO_OPTION
-            .tao = ins->tao_disabled
+            .tao = !ins->tao_disabled
 #endif
         };
 
@@ -507,9 +509,9 @@ int16_t canardHandleRxFrame(CanardInstance* ins, const CanardCANFrame* frame, ui
 
 #if CANARD_ENABLE_CANFD
             .canfd = frame->canfd,
-            .tao = !frame->canfd || ins->tao_disabled
+            .tao = !(frame->canfd || ins->tao_disabled)
 #elif CANARD_ENABLE_TAO_OPTION
-            .tao = ins->tao_disabled
+            .tao = !ins->tao_disabled
 #endif
         };
 
