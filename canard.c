@@ -389,11 +389,12 @@ int16_t canardHandleRxFrame(CanardInstance* ins, const CanardCANFrame* frame, ui
         computeTransferIDForwardDistance((uint8_t) rx_state->transfer_id, TRANSFER_ID_FROM_TAIL_BYTE(tail_byte)) > 1;
     const bool iface_switch_allowed = (timestamp_usec - rx_state->timestamp_usec) > IFACE_SWITCH_DELAY_USEC;
     const bool non_wrapped_tid = computeTransferIDForwardDistance(TRANSFER_ID_FROM_TAIL_BYTE(tail_byte), (uint8_t) rx_state->transfer_id) < (1 << (TRANSFER_ID_BIT_LEN-1));
+    const bool incomplete_frame = rx_state->buffer_blocks != NULL;
 
     const bool need_restart =
             (not_initialized) ||
             (tid_timed_out) ||
-            (same_iface && first_frame && not_previous_tid) ||
+            (same_iface && first_frame && (not_previous_tid || incomplete_frame)) ||
             (iface_switch_allowed && first_frame && non_wrapped_tid);
 
     if (need_restart)
