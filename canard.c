@@ -133,6 +133,10 @@ uint8_t canardGetLocalNodeID(const CanardInstance* ins)
     return ins->node_id;
 }
 
+void canardForgetLocalNodeID(CanardInstance* ins) {
+    ins->node_id = CANARD_BROADCAST_NODE_ID;
+}
+
 int16_t canardBroadcast(CanardInstance* ins,
                         uint64_t data_type_signature,
                         uint16_t data_type_id,
