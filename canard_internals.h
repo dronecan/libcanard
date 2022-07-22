@@ -117,7 +117,7 @@ CANARD_INTERNAL int16_t descatterTransferPayload(const CanardRxTransfer* transfe
 
 CANARD_INTERNAL bool isBigEndian(void);
 
-CANARD_INTERNAL void swapByteOrder(void* data, unsigned size);
+CANARD_INTERNAL void swapByteOrder(void* data, size_t size);
 
 /*
  * Transfer CRC
