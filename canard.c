@@ -35,6 +35,7 @@
 
 
 #define TRANSFER_TIMEOUT_USEC                       2000000
+#define IFACE_SWITCH_DELAY_USEC                     1000000
 
 #define TRANSFER_ID_BIT_LEN                         5U
 #define ANON_MSG_DATA_TYPE_ID_BIT_LEN               2U
@@ -366,25 +367,36 @@ int16_t canardHandleRxFrame(CanardInstance* ins, const CanardCANFrame* frame, ui
     // Resolving the state flags:
     const bool not_initialized = rx_state->timestamp_usec == 0;
     const bool tid_timed_out = (timestamp_usec - rx_state->timestamp_usec) > TRANSFER_TIMEOUT_USEC;
+    const bool same_iface = frame->iface_id == rx_state->iface_id;
     const bool first_frame = IS_START_OF_TRANSFER(tail_byte);
     const bool not_previous_tid =
         computeTransferIDForwardDistance((uint8_t) rx_state->transfer_id, TRANSFER_ID_FROM_TAIL_BYTE(tail_byte)) > 1;
+    const bool iface_switch_allowed = (timestamp_usec - rx_state->timestamp_usec) > IFACE_SWITCH_DELAY_USEC;
+    const bool non_wrapped_tid = computeTransferIDForwardDistance(TRANSFER_ID_FROM_TAIL_BYTE(tail_byte), (uint8_t) rx_state->transfer_id) < (1 << (TRANSFER_ID_BIT_LEN-1));
 
     const bool need_restart =
             (not_initialized) ||
             (tid_timed_out) ||
-            (first_frame && not_previous_tid);
+            (same_iface && first_frame && not_previous_tid) ||
+            (iface_switch_allowed && first_frame && non_wrapped_tid);
 
     if (need_restart)
     {
         rx_state->transfer_id = TRANSFER_ID_FROM_TAIL_BYTE(tail_byte);
         rx_state->next_toggle = 0;
         releaseStatePayload(ins, rx_state);
+        rx_state->iface_id = frame->iface_id;
         if (!IS_START_OF_TRANSFER(tail_byte))
         {
             rx_state->transfer_id++;
             return -CANARD_ERROR_RX_MISSED_START;
         }
+    }
+
+    if (frame->iface_id != rx_state->iface_id)
+    {
+        // drop frame if coming from unexpected interface
+        return CANARD_OK;
     }
 
     if (IS_START_OF_TRANSFER(tail_byte) && IS_END_OF_TRANSFER(tail_byte)) // single frame transfer
