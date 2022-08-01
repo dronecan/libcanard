@@ -144,7 +144,8 @@ int16_t canardBroadcast(CanardInstance* ins,
                         uint8_t* inout_transfer_id,
                         uint8_t priority,
                         const void* payload,
-                        uint16_t payload_len
+                        uint16_t payload_len,
+                        uint8_t iface_mask
 #if CANARD_ENABLE_CANFD
                         ,bool canfd
 #endif
@@ -191,7 +192,7 @@ int16_t canardBroadcast(CanardInstance* ins,
         );
     }
 
-    const int16_t result = enqueueTxFrames(ins, can_id, inout_transfer_id, crc, payload, payload_len
+    const int16_t result = enqueueTxFrames(ins, can_id, inout_transfer_id, crc, payload, payload_len, iface_mask
 #if CANARD_ENABLE_CANFD
                         , canfd
 #endif
@@ -239,7 +240,8 @@ int16_t canardRequestOrRespond(CanardInstance* ins,
                                uint8_t priority,
                                CanardRequestResponse kind,
                                const void* payload,
-                               uint16_t payload_len
+                               uint16_t payload_len,
+                               uint8_t iface_mask
 #if CANARD_ENABLE_CANFD
                                ,bool canfd
 #endif
@@ -269,7 +271,7 @@ int16_t canardRequestOrRespond(CanardInstance* ins,
     );
 
 
-    const int16_t result = enqueueTxFrames(ins, can_id, inout_transfer_id, crc, payload, payload_len
+    const int16_t result = enqueueTxFrames(ins, can_id, inout_transfer_id, crc, payload, payload_len, iface_mask
 #if CANARD_ENABLE_CANFD
                         , canfd
 #endif
@@ -330,11 +332,11 @@ int16_t canardHandleRxFrame(CanardInstance* ins, const CanardCANFrame* frame, ui
 
     const uint8_t tail_byte = frame->data[frame->data_len - 1];
 
+    uint64_t data_type_signature = 0;
     CanardRxState* rx_state = NULL;
 
     if (IS_START_OF_TRANSFER(tail_byte))
     {
-        uint64_t data_type_signature = 0;
 
         if (ins->should_accept(ins, &data_type_signature, data_type_id, transfer_type, source_node_id))
         {
@@ -344,8 +346,6 @@ int16_t canardHandleRxFrame(CanardInstance* ins, const CanardCANFrame* frame, ui
             {
                 return -CANARD_ERROR_OUT_OF_MEMORY;
             }
-
-            rx_state->calculated_crc = crcAddSignature(0xFFFFU, data_type_signature);
         }
         else
         {
@@ -453,6 +453,7 @@ int16_t canardHandleRxFrame(CanardInstance* ins, const CanardCANFrame* frame, ui
             return -CANARD_ERROR_OUT_OF_MEMORY;
         }
         rx_state->payload_crc = (uint16_t)(((uint16_t) frame->data[0]) | (uint16_t)((uint16_t) frame->data[1] << 8U));
+        rx_state->calculated_crc = crcAddSignature(0xFFFFU, data_type_signature);
         rx_state->calculated_crc = crcAdd((uint16_t)rx_state->calculated_crc,
                                           frame->data + 2, (uint8_t)(frame->data_len - 3));
     }
@@ -990,7 +991,8 @@ CANARD_INTERNAL int16_t enqueueTxFrames(CanardInstance* ins,
                                         uint8_t* transfer_id,
                                         uint16_t crc,
                                         const uint8_t* payload,
-                                        uint16_t payload_len
+                                        uint16_t payload_len,
+                                        uint8_t iface_mask
 #if CANARD_ENABLE_CANFD
                                         ,bool canfd
 #endif
@@ -1029,6 +1031,7 @@ CANARD_INTERNAL int16_t enqueueTxFrames(CanardInstance* ins,
         queue_item->frame.data_len = (uint8_t)(payload_len + 1);
         queue_item->frame.data[payload_len] = (uint8_t)(0xC0U | (*transfer_id & 31U));
         queue_item->frame.id = can_id | CANARD_CAN_FRAME_EFF;
+        queue_item->frame.iface_mask = iface_mask;
 #if CANARD_ENABLE_CANFD
         queue_item->frame.canfd = canfd;
 #endif
@@ -1075,6 +1078,7 @@ CANARD_INTERNAL int16_t enqueueTxFrames(CanardInstance* ins,
             queue_item->frame.data[i] = (uint8_t)(sot_eot | ((uint32_t)toggle << 5U) | ((uint32_t)*transfer_id & 31U));
             queue_item->frame.id = can_id | CANARD_CAN_FRAME_EFF;
             queue_item->frame.data_len = (uint8_t)(i + 1);
+            queue_item->frame.iface_mask = iface_mask;
 #if CANARD_ENABLE_CANFD
             queue_item->frame.canfd = canfd;
 #endif
