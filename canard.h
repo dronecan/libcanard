@@ -157,6 +157,7 @@ typedef struct
 #endif
     uint8_t data_len;
     uint8_t iface_id;
+    uint8_t iface_mask;
 #if CANARD_ENABLE_CANFD
     bool canfd;
 #endif
@@ -415,7 +416,8 @@ int16_t canardBroadcast(CanardInstance* ins,            ///< Library instance
                         uint8_t* inout_transfer_id,     ///< Pointer to a persistent variable containing the transfer ID
                         uint8_t priority,               ///< Refer to definitions CANARD_TRANSFER_PRIORITY_*
                         const void* payload,            ///< Transfer payload
-                        uint16_t payload_len            ///< Length of the above, in bytes
+                        uint16_t payload_len,            ///< Length of the above, in bytes
+                        uint8_t iface_mask               ///< Bitmask of interfaces to transmit on
 #if CANARD_ENABLE_CANFD
                         ,bool canfd                      ///< Is the frame canfd
 #endif
@@ -447,7 +449,8 @@ int16_t canardRequestOrRespond(CanardInstance* ins,             ///< Library ins
                                uint8_t priority,                ///< Refer to definitions CANARD_TRANSFER_PRIORITY_*
                                CanardRequestResponse kind,      ///< Refer to CanardRequestResponse
                                const void* payload,             ///< Transfer payload
-                               uint16_t payload_len             ///< Length of the above, in bytes
+                               uint16_t payload_len,             ///< Length of the above, in bytes
+                               uint8_t iface_mask               ///< Bitmask of interfaces to transmit on
 #if CANARD_ENABLE_CANFD
                                 ,bool canfd                     ///< Is the frame canfd
 #endif
