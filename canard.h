@@ -50,6 +50,9 @@ extern "C" {
 #define CANARD_ENABLE_CANFD                         0
 #endif
 
+#ifndef CANARD_MULTI_IFACE
+#define CANARD_MULTI_IFACE                          0
+#endif
 
 #ifndef CANARD_ENABLE_TAO_OPTION
 #if CANARD_ENABLE_CANFD
@@ -156,6 +159,10 @@ typedef struct
     uint8_t data[CANARD_CAN_FRAME_MAX_DATA_LEN];
 #endif
     uint8_t data_len;
+    uint8_t iface_id;
+#if CANARD_MULTI_IFACE
+    uint8_t iface_mask;
+#endif
 #if CANARD_ENABLE_CANFD
     bool canfd;
 #endif
@@ -272,7 +279,7 @@ struct CanardRxState
     unsigned next_toggle    : 1;    // 16+10+5+1 = 32, aligned.
 
     uint16_t payload_crc;
-
+    uint8_t  iface_id;
     uint8_t buffer_head[];
 };
 CANARD_STATIC_ASSERT(offsetof(CanardRxState, buffer_head) <= 28, "Invalid memory layout");
@@ -420,6 +427,9 @@ int16_t canardBroadcast(CanardInstance* ins,            ///< Library instance
                         uint8_t priority,               ///< Refer to definitions CANARD_TRANSFER_PRIORITY_*
                         const void* payload,            ///< Transfer payload
                         uint16_t payload_len            ///< Length of the above, in bytes
+#if CANARD_MULTI_IFACE
+                        ,uint8_t iface_mask               ///< Bitmask of interfaces to transmit on
+#endif
 #if CANARD_ENABLE_CANFD
                         ,bool canfd                      ///< Is the frame canfd
 #endif
@@ -452,6 +462,9 @@ int16_t canardRequestOrRespond(CanardInstance* ins,             ///< Library ins
                                CanardRequestResponse kind,      ///< Refer to CanardRequestResponse
                                const void* payload,             ///< Transfer payload
                                uint16_t payload_len             ///< Length of the above, in bytes
+#if CANARD_MULTI_IFACE
+                               ,uint8_t iface_mask               ///< Bitmask of interfaces to transmit on
+#endif
 #if CANARD_ENABLE_CANFD
                                 ,bool canfd                     ///< Is the frame canfd
 #endif
