@@ -85,7 +85,7 @@ void canardInit(CanardInstance* out_ins,
      * If your application fails here, make sure it's not built in 64-bit mode.
      * Refer to the design documentation for more info.
      */
-    CANARD_ASSERT(CANARD_MULTIFRAME_RX_PAYLOAD_HEAD_SIZE >= 6);
+    CANARD_ASSERT(CANARD_MULTIFRAME_RX_PAYLOAD_HEAD_SIZE >= 5);
 
     memset(out_ins, 0, sizeof(*out_ins));
 

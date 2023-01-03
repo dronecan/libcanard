@@ -282,8 +282,8 @@ struct CanardRxState
     uint8_t  iface_id;
     uint8_t buffer_head[];
 };
-CANARD_STATIC_ASSERT(offsetof(CanardRxState, buffer_head) <= 28, "Invalid memory layout");
-CANARD_STATIC_ASSERT(CANARD_MULTIFRAME_RX_PAYLOAD_HEAD_SIZE >= 4, "Invalid memory layout");
+CANARD_STATIC_ASSERT(offsetof(CanardRxState, buffer_head) <= 27, "Invalid memory layout");
+CANARD_STATIC_ASSERT(CANARD_MULTIFRAME_RX_PAYLOAD_HEAD_SIZE >= 5, "Invalid memory layout");
 
 /**
  * This is the core structure that keeps all of the states and allocated resources of the library instance.
