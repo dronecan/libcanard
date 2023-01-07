@@ -60,12 +60,6 @@
 #define TOGGLE_BIT(x)                               ((bool)(((uint32_t)(x) >> 5U) & 0x1U))
 
 
-struct CanardTxQueueItem
-{
-    CanardTxQueueItem* next;
-    CanardCANFrame frame;
-};
-
 
 /*
  * API functions
@@ -145,6 +139,9 @@ int16_t canardBroadcast(CanardInstance* ins,
                         uint8_t priority,
                         const void* payload,
                         uint16_t payload_len
+#if CANARD_ENABLE_DEADLINE
+                        ,uint64_t tx_deadline
+#endif
 #if CANARD_MULTI_IFACE
                         ,uint8_t iface_mask
 #endif
@@ -195,6 +192,9 @@ int16_t canardBroadcast(CanardInstance* ins,
     }
 
     const int16_t result = enqueueTxFrames(ins, can_id, inout_transfer_id, crc, payload, payload_len
+#if CANARD_ENABLE_DEADLINE
+                        , tx_deadline
+#endif
 #if CANARD_MULTI_IFACE
                         , iface_mask
 #endif
@@ -246,6 +246,9 @@ int16_t canardRequestOrRespond(CanardInstance* ins,
                                CanardRequestResponse kind,
                                const void* payload,
                                uint16_t payload_len
+#if CANARD_ENABLE_DEADLINE
+                               ,uint64_t tx_deadline
+#endif
 #if CANARD_MULTI_IFACE
                                ,uint8_t iface_mask
 #endif
@@ -279,8 +282,11 @@ int16_t canardRequestOrRespond(CanardInstance* ins,
 
 
     const int16_t result = enqueueTxFrames(ins, can_id, inout_transfer_id, crc, payload, payload_len
+#if CANARD_ENABLE_DEADLINE
+                        , tx_deadline
+#endif
 #if CANARD_MULTI_IFACE
-    , iface_mask
+                        , iface_mask
 #endif
 #if CANARD_ENABLE_CANFD
                         , canfd
@@ -295,7 +301,7 @@ int16_t canardRequestOrRespond(CanardInstance* ins,
     return result;
 }
 
-const CanardCANFrame* canardPeekTxQueue(const CanardInstance* ins)
+CanardCANFrame* canardPeekTxQueue(const CanardInstance* ins)
 {
     if (ins->tx_queue == NULL)
     {
@@ -1002,6 +1008,9 @@ CANARD_INTERNAL int16_t enqueueTxFrames(CanardInstance* ins,
                                         uint16_t crc,
                                         const uint8_t* payload,
                                         uint16_t payload_len
+#if CANARD_ENABLE_DEADLINE
+                                        ,uint64_t tx_deadline
+#endif
 #if CANARD_MULTI_IFACE
                                         ,uint8_t iface_mask
 #endif
@@ -1043,6 +1052,9 @@ CANARD_INTERNAL int16_t enqueueTxFrames(CanardInstance* ins,
         queue_item->frame.data_len = (uint8_t)(payload_len + 1);
         queue_item->frame.data[payload_len] = (uint8_t)(0xC0U | (*transfer_id & 31U));
         queue_item->frame.id = can_id | CANARD_CAN_FRAME_EFF;
+#if CANARD_ENABLE_DEADLINE
+        queue_item->frame.deadline_usec = tx_deadline;
+#endif
 #if CANARD_MULTI_IFACE
         queue_item->frame.iface_mask = iface_mask;
 #endif
@@ -1092,6 +1104,9 @@ CANARD_INTERNAL int16_t enqueueTxFrames(CanardInstance* ins,
             queue_item->frame.data[i] = (uint8_t)(sot_eot | ((uint32_t)toggle << 5U) | ((uint32_t)*transfer_id & 31U));
             queue_item->frame.id = can_id | CANARD_CAN_FRAME_EFF;
             queue_item->frame.data_len = (uint8_t)(i + 1);
+#if CANARD_ENABLE_DEADLINE
+            queue_item->frame.deadline_usec = tx_deadline;
+#endif
 #if CANARD_MULTI_IFACE
             queue_item->frame.iface_mask = iface_mask;
 #endif
