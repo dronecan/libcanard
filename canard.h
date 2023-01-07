@@ -54,6 +54,10 @@ extern "C" {
 #define CANARD_MULTI_IFACE                          0
 #endif
 
+#ifndef CANARD_ENABLE_DEADLINE
+#define CANARD_ENABLE_DEADLINE                      0
+#endif
+
 #ifndef CANARD_ENABLE_TAO_OPTION
 #if CANARD_ENABLE_CANFD
 #define CANARD_ENABLE_TAO_OPTION                    1
@@ -153,6 +157,9 @@ typedef struct
      *  - CANARD_CAN_FRAME_ERR
      */
     uint32_t id;
+#if CANARD_ENABLE_DEADLINE
+    uint64_t deadline_usec;
+#endif
 #if CANARD_ENABLE_CANFD
     uint8_t data[CANARD_CANFD_FRAME_MAX_DATA_LEN];
 #else
@@ -194,6 +201,11 @@ typedef struct CanardInstance CanardInstance;
 typedef struct CanardRxTransfer CanardRxTransfer;
 typedef struct CanardRxState CanardRxState;
 typedef struct CanardTxQueueItem CanardTxQueueItem;
+struct CanardTxQueueItem
+{
+    CanardTxQueueItem* next;
+    CanardCANFrame frame;
+};
 
 /**
  * The application must implement this function and supply a pointer to it to the library during initialization.
@@ -427,6 +439,9 @@ int16_t canardBroadcast(CanardInstance* ins,            ///< Library instance
                         uint8_t priority,               ///< Refer to definitions CANARD_TRANSFER_PRIORITY_*
                         const void* payload,            ///< Transfer payload
                         uint16_t payload_len            ///< Length of the above, in bytes
+#if CANARD_ENABLE_DEADLINE
+                        ,uint64_t tx_deadline           ///< Transmission deadline, microseconds
+#endif
 #if CANARD_MULTI_IFACE
                         ,uint8_t iface_mask               ///< Bitmask of interfaces to transmit on
 #endif
@@ -462,6 +477,9 @@ int16_t canardRequestOrRespond(CanardInstance* ins,             ///< Library ins
                                CanardRequestResponse kind,      ///< Refer to CanardRequestResponse
                                const void* payload,             ///< Transfer payload
                                uint16_t payload_len             ///< Length of the above, in bytes
+#if CANARD_ENABLE_DEADLINE
+                               ,uint64_t tx_deadline            ///< Transmission deadline, microseconds
+#endif
 #if CANARD_MULTI_IFACE
                                ,uint8_t iface_mask               ///< Bitmask of interfaces to transmit on
 #endif
@@ -476,8 +494,17 @@ int16_t canardRequestOrRespond(CanardInstance* ins,             ///< Library ins
  * The application will call this function after canardBroadcast() or canardRequestOrRespond() to transmit generated
  * frames over the CAN bus.
  */
-const CanardCANFrame* canardPeekTxQueue(const CanardInstance* ins);
+CanardCANFrame* canardPeekTxQueue(const CanardInstance* ins);
 
+/**
+ * Returns the timeout for the frame on top of TX queue.
+ * Returns zero if the TX queue is empty.
+ * The application will call this function after canardPeekTxQueue() to determine when to call canardPopTxQueue(), if
+ * the frame is not transmitted.
+ */
+#if CANARD_ENABLE_DEADLINE
+uint64_t canardPeekTxQueueDeadline(const CanardInstance* ins);
+#endif
 /**
  * Removes the top priority frame from the TX queue.
  * The application will call this function after canardPeekTxQueue() once the obtained frame has been processed.
