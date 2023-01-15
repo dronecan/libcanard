@@ -81,6 +81,10 @@ public:
     /// @return 
     uint8_t get_index() const { return index; }
 
+    /// @brief set canfd mode
+    /// @param _canfd true if the interface is CAN FD
+    void set_canfd(bool _canfd) { canfd = _canfd; }
+
 protected:
     /// @brief forward accept_message call to indexed HandlerList
     /// @param msgid ID of the message/service
