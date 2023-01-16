@@ -128,7 +128,7 @@ public:
         call_counts++;
     }
     Canard::ObjCallback<TestClient1, uavcan_protocol_GetNodeInfoResponse> get_node_info_client_callback{this, &TestClient1::handle_get_node_info_response};
-    Canard::Client<uavcan_protocol_GetNodeInfo_cxx_iface> get_node_info_client{interface, get_node_info_client_callback};
+    Canard::Client<uavcan_protocol_GetNodeInfo> get_node_info_client{interface, get_node_info_client_callback};
 };
 
 int TestClient0::call_counts = 0;

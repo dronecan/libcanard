@@ -28,8 +28,8 @@
 namespace Canard {
 
 /// @brief Server class to handle service requests
-/// @tparam svctype 
-template <typename svctype>
+/// @tparam reqtype 
+template <typename reqtype>
 class Server : public HandlerList {
 
 public:
@@ -37,8 +37,8 @@ public:
     /// @param _interface Interface object
     /// @param _cb Callback object
     /// @param _index HandlerList instance id
-    Server(Interface &_interface, Callback<typename svctype::c_req_type> &_cb) : 
-    HandlerList(CanardTransferTypeRequest, svctype::ID, svctype::SIGNATURE, _interface.get_index()),
+    Server(Interface &_interface, Callback<reqtype> &_cb) : 
+    HandlerList(CanardTransferTypeRequest, reqtype::cxx_iface::ID, reqtype::cxx_iface::SIGNATURE, _interface.get_index()),
     interface(_interface),
     cb(_cb) {
         // multiple servers are not allowed, so no list
@@ -50,8 +50,8 @@ public:
     /// @brief handles incoming messages
     /// @param transfer transfer object of the request
     void handle_message(const CanardRxTransfer& transfer) override {
-        typename svctype::c_req_type msg {};
-        svctype::req_decode(&transfer, &msg);
+        reqtype msg {};
+        reqtype::cxx_iface::req_decode(&transfer, &msg);
         transfer_id = transfer.transfer_id;
         // call the registered callback
         cb(transfer, msg);
@@ -61,9 +61,9 @@ public:
     /// @param transfer transfer object of the request
     /// @param msg message containing the response
     /// @return true if the response was put into the queue successfully
-    bool respond(const CanardRxTransfer& transfer, typename svctype::c_rsp_type& msg) {
+    bool respond(const CanardRxTransfer& transfer, typename reqtype::cxx_iface::rsptype& msg) {
         // encode the message
-        uint16_t len = svctype::rsp_encode(&msg, rsp_buf
+        uint16_t len = reqtype::cxx_iface::rsp_encode(&msg, rsp_buf
 #if CANARD_ENABLE_CANFD
         , !transfer.canfd
 #elif CANARD_ENABLE_TAO_OPTION
@@ -80,8 +80,8 @@ public:
 #endif
             rsp_transfer.transfer_type = CanardTransferTypeResponse;
             rsp_transfer.inout_transfer_id = &transfer_id;
-            rsp_transfer.data_type_id = svctype::ID;
-            rsp_transfer.data_type_signature = svctype::SIGNATURE;
+            rsp_transfer.data_type_id = reqtype::cxx_iface::ID;
+            rsp_transfer.data_type_signature = reqtype::cxx_iface::SIGNATURE;
             rsp_transfer.payload = rsp_buf;
             rsp_transfer.payload_len = len;
             rsp_transfer.priority = transfer.priority;
@@ -99,9 +99,9 @@ public:
 
 private:
     Transfer rsp_transfer;
-    uint8_t rsp_buf[svctype::RSP_MAX_SIZE];
+    uint8_t rsp_buf[reqtype::cxx_iface::RSP_MAX_SIZE];
     Interface &interface;
-    Callback<typename svctype::c_req_type> &cb;
+    Callback<reqtype> &cb;
 
     uint32_t timeout = 1000;
     uint8_t transfer_id = 0;
@@ -111,24 +111,3 @@ private:
 };
 
 } // namespace Canard
-
-/// Helper macros to create server instances
-
-/// @brief create a server instance
-/// @param IFACE interface instance name
-/// @param SRVNAME server instance name
-/// @param SVCTYPE service type name
-/// @param REQHANDLER request handler function
-#define CANARD_CREATE_SERVER(IFACE, SRVNAME, SVCTYPE, REQHANDLER) \
-    Canard::StaticCallback<SVCTYPE##_cxx_iface::c_req_type> SRVNAME##_callback{REQHANDLER}; \
-    Canard::Server<SVCTYPE##_cxx_iface> SRVNAME{IFACE, SRVNAME##_callback};
-
-/// @brief create a client instance
-/// @param IFACE interface instance name
-/// @param SRVNAME server instance name
-/// @param SVCTYPE service type
-/// @param CLASS class name
-/// @param REQHANDLER request handler callback member function of OBJ
-#define CANARD_CREATE_SERVER_CLASS(IFACE, SRVNAME, SVCTYPE, CLASS, REQHANDLER) \
-    Canard::ObjCallback<CLASS, SVCTYPE##_cxx_iface::c_req_type> SRVNAME##_callback{this, REQHANDLER}; \
-    Canard::Server<SVCTYPE##_cxx_iface> SRVNAME{IFACE, SRVNAME##_callback};

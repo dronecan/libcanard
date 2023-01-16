@@ -26,97 +26,97 @@
 namespace Canard {
 
 /// @brief Base class for message callbacks.
-template <typename c_msg_type>
+template <typename msgtype>
 class Callback {
 public:
-    virtual void operator()(const CanardRxTransfer& transfer, const c_msg_type& msg) = 0;
+    virtual void operator()(const CanardRxTransfer& transfer, const msgtype& msg) = 0;
 };
 
 /// @brief Static callback class.
-/// @tparam c_msg_type type of message handled by the callback
-template <typename c_msg_type>
-class StaticCallback : public Callback<c_msg_type> {
+/// @tparam msgtype type of message handled by the callback
+template <typename msgtype>
+class StaticCallback : public Callback<msgtype> {
 public:
     /// @brief constructor
     /// @param _cb callback function
-    StaticCallback(void (*_cb)(const CanardRxTransfer& transfer, const c_msg_type& msg)) : cb(_cb) {}
+    StaticCallback(void (*_cb)(const CanardRxTransfer& transfer, const msgtype& msg)) : cb(_cb) {}
 
-    void operator()(const CanardRxTransfer& transfer, const c_msg_type& msg) override {
+    void operator()(const CanardRxTransfer& transfer, const msgtype& msg) override {
         cb(transfer, msg);
     }
 private:
-    void (*cb)(const CanardRxTransfer& transfer, const c_msg_type& msg);
+    void (*cb)(const CanardRxTransfer& transfer, const msgtype& msg);
 };
 
 /// @brief allocate a static callback object using new
-/// @tparam c_msg_type 
+/// @tparam msgtype 
 /// @param cb callback function
 /// @return StaticCallback object
-template <typename c_msg_type>
-StaticCallback<c_msg_type> *allocate_static_callback(void (*cb)(const CanardRxTransfer& transfer, const c_msg_type& msg)) {
-    return (new StaticCallback<c_msg_type>(cb));
+template <typename msgtype>
+StaticCallback<msgtype> *allocate_static_callback(void (*cb)(const CanardRxTransfer& transfer, const msgtype& msg)) {
+    return (new StaticCallback<msgtype>(cb));
 }
 
 /// @brief Object callback class.
 /// @tparam T type of object to call the callback on
-/// @tparam c_msg_type type of message handled by the callback
-template <typename T, typename c_msg_type>
-class ObjCallback : public Callback<c_msg_type> {
+/// @tparam msgtype type of message handled by the callback
+template <typename T, typename msgtype>
+class ObjCallback : public Callback<msgtype> {
 public:
     /// @brief Constructor
     /// @param _obj object to call the callback on
     /// @param _cb callback member function
-    ObjCallback(T* _obj, void (T::*_cb)(const CanardRxTransfer& transfer, const c_msg_type& msg)) : obj(_obj), cb(_cb) {}
+    ObjCallback(T* _obj, void (T::*_cb)(const CanardRxTransfer& transfer, const msgtype& msg)) : obj(_obj), cb(_cb) {}
 
-    void operator()(const CanardRxTransfer& transfer, const c_msg_type& msg) override {
+    void operator()(const CanardRxTransfer& transfer, const msgtype& msg) override {
         if (obj != nullptr) {
             (obj->*cb)(transfer, msg);
         }
     }
 private:
     T *obj;
-    void (T::*cb)(const CanardRxTransfer& transfer, const c_msg_type& msg);
+    void (T::*cb)(const CanardRxTransfer& transfer, const msgtype& msg);
 };
 
 /// @brief allocate an object callback object using new
 /// @tparam T type of object to call the callback on
-/// @tparam c_msg_type type of message handled by the callback
+/// @tparam msgtype type of message handled by the callback
 /// @param obj object to call the callback on
 /// @param cb callback member function
 /// @return ObjCallback object
-template <typename T, typename c_msg_type>
-ObjCallback<T, c_msg_type>* allocate_obj_callback(T* obj, void (T::*cb)(const CanardRxTransfer& transfer, const c_msg_type& msg)) {
-    return (new ObjCallback<T, c_msg_type>(obj, cb));
+template <typename T, typename msgtype>
+ObjCallback<T, msgtype>* allocate_obj_callback(T* obj, void (T::*cb)(const CanardRxTransfer& transfer, const msgtype& msg)) {
+    return (new ObjCallback<T, msgtype>(obj, cb));
 }
 
 /// @brief Argument callback class.
 /// @tparam T type of object to pass to the callback
-/// @tparam c_msg_type type of message handled by the callback
-template <typename T, typename c_msg_type>
-class ArgCallback : public Callback<c_msg_type> {
+/// @tparam msgtype type of message handled by the callback
+template <typename T, typename msgtype>
+class ArgCallback : public Callback<msgtype> {
 public:
     /// @brief Constructor
     /// @param _arg argument to pass to the callback
     /// @param _cb callback function
-    ArgCallback(T* _arg, void (*_cb)(T* arg, const CanardRxTransfer& transfer, const c_msg_type& msg)) : cb(_cb), arg(_arg) {}
+    ArgCallback(T* _arg, void (*_cb)(T* arg, const CanardRxTransfer& transfer, const msgtype& msg)) : cb(_cb), arg(_arg) {}
 
-    void operator()(const CanardRxTransfer& transfer, const c_msg_type& msg) override {
+    void operator()(const CanardRxTransfer& transfer, const msgtype& msg) override {
         cb(arg, transfer, msg);
     }
 private:
-    void (*cb)(T* arg, const CanardRxTransfer& transfer, const c_msg_type& msg);
+    void (*cb)(T* arg, const CanardRxTransfer& transfer, const msgtype& msg);
     T* arg;
 };
 
 /// @brief allocate an argument callback object using new
 /// @tparam T type of object to pass to the callback
-/// @tparam c_msg_type type of message handled by the callback
+/// @tparam msgtype type of message handled by the callback
 /// @param arg argument to pass to the callback
 /// @param cb callback function
 /// @return ArgCallback object
-template <typename T, typename c_msg_type>
-ArgCallback<T, c_msg_type>* allocate_arg_callback(T* arg, void (*cb)(T* arg, const CanardRxTransfer& transfer, const c_msg_type& msg)) {
-    return (new ArgCallback<T, c_msg_type>(arg, cb));
+template <typename T, typename msgtype>
+ArgCallback<T, msgtype>* allocate_arg_callback(T* arg, void (*cb)(T* arg, const CanardRxTransfer& transfer, const msgtype& msg)) {
+    return (new ArgCallback<T, msgtype>(arg, cb));
 }
 
 } // namespace Canard

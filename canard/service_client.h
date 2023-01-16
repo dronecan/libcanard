@@ -29,15 +29,15 @@
 namespace Canard {
 
 /// @brief Client class to handle service requests
-/// @tparam svctype Service type
-template <typename svctype>
+/// @tparam rsptype Service type
+template <typename rsptype>
 class Client : public HandlerList, public Sender {
 public:
     /// @brief Client constructor
     /// @param _interface Interface object
     /// @param _cb Callback object
-    Client(Interface &_interface, Callback<typename svctype::c_rsp_type> &_cb) :
-    HandlerList(CanardTransferTypeResponse, svctype::ID, svctype::SIGNATURE, _interface.get_index()),
+    Client(Interface &_interface, Callback<rsptype> &_cb) :
+    HandlerList(CanardTransferTypeResponse, rsptype::cxx_iface::ID, rsptype::cxx_iface::SIGNATURE, _interface.get_index()),
     Sender(_interface),
     cb(_cb) {
         next = branch_head[index];
@@ -49,7 +49,7 @@ public:
 
     // destructor, remove the entry from the singly-linked list
     ~Client() {
-        Client<svctype>* entry = branch_head[index];
+        Client<rsptype>* entry = branch_head[index];
         if (entry == this) {
             branch_head[index] = next;
             return;
@@ -66,11 +66,11 @@ public:
     /// @brief handles incoming messages
     /// @param transfer transfer object of the request
     void handle_message(const CanardRxTransfer& transfer) override {
-        typename svctype::c_rsp_type msg {};
-        svctype::rsp_decode(&transfer, &msg);
+        rsptype msg {};
+        rsptype::cxx_iface::rsp_decode(&transfer, &msg);
 
         // scan through the list of entries for corresponding server node id and transfer id
-        Client<svctype>* entry = branch_head[index];
+        Client<rsptype>* entry = branch_head[index];
         while (entry != nullptr) {
             if (entry->server_node_id == transfer.source_node_id
                 && entry->transfer_id == transfer.transfer_id) {
@@ -85,7 +85,7 @@ public:
     /// @param destination_node_id node id of the server
     /// @param msg message containing the request
     /// @return true if the request was put into the queue successfully
-    bool request(uint8_t destination_node_id, typename svctype::c_req_type& msg) {
+    bool request(uint8_t destination_node_id, typename rsptype::cxx_iface::reqtype& msg) {
         return request(destination_node_id, msg, interface.is_canfd());
     }
 
@@ -94,9 +94,9 @@ public:
     /// @param msg message containing the request
     /// @param canfd true if CAN FD is to be used
     /// @return true if the request was put into the queue successfully
-    bool request(uint8_t destination_node_id, typename svctype::c_req_type& msg, bool canfd) {
+    bool request(uint8_t destination_node_id, typename rsptype::cxx_iface::reqtype& msg, bool canfd) {
         // encode the message
-        uint16_t len = svctype::req_encode(&msg, req_buf 
+        uint16_t len = rsptype::cxx_iface::req_encode(&msg, req_buf 
 #if CANARD_ENABLE_CANFD
         , !canfd
 #elif CANARD_ENABLE_TAO_OPTION
@@ -106,8 +106,8 @@ public:
         Transfer req_transfer;
         // send the message if encoded successfully
         req_transfer.transfer_type = CanardTransferTypeRequest;
-        req_transfer.data_type_id = svctype::ID;
-        req_transfer.data_type_signature = svctype::SIGNATURE;
+        req_transfer.data_type_id = rsptype::cxx_iface::ID;
+        req_transfer.data_type_signature = rsptype::cxx_iface::SIGNATURE;
         req_transfer.payload = req_buf;
         req_transfer.payload_len = len;
 #if CANARD_ENABLE_CANFD
@@ -116,43 +116,22 @@ public:
 #if CANARD_MULTI_IFACE
         req_transfer.iface_mask = CANARD_IFACE_ALL;
 #endif
-        transfer_id = *TransferObject::get_tid_ptr(interface.get_index(), svctype::ID, CanardTransferTypeRequest, interface.get_node_id(), destination_node_id);
+        transfer_id = *TransferObject::get_tid_ptr(interface.get_index(), rsptype::cxx_iface::ID, CanardTransferTypeRequest, interface.get_node_id(), destination_node_id);
         server_node_id = destination_node_id;
         return send(req_transfer, destination_node_id);
     }
 
 private:
-    static Client<svctype>* branch_head[CANARD_NUM_HANDLERS];
-    Client<svctype>* next;
+    static Client<rsptype>* branch_head[CANARD_NUM_HANDLERS];
+    Client<rsptype>* next;
     uint8_t server_node_id;
 
-    uint8_t req_buf[svctype::REQ_MAX_SIZE];
-    Callback<typename svctype::c_rsp_type> &cb;
+    uint8_t req_buf[rsptype::cxx_iface::REQ_MAX_SIZE];
+    Callback<rsptype> &cb;
     uint8_t transfer_id;
 };
 
-template <typename svctype>
-Client<svctype> *Client<svctype>::branch_head[] = {nullptr};
+template <typename rsptype>
+Client<rsptype> *Client<rsptype>::branch_head[] = {nullptr};
 
 } // namespace Canard
-
-/// Helper macros to create client instances
-
-/// @brief create a client instance
-/// @param IFACE interface instance name
-/// @param CLINAME client instance name
-/// @param SVCTYPE service type
-/// @param RSPHANDLER response handler callback
-#define CANARD_CREATE_CLIENT(IFACE, CLINAME, SVCTYPE, RSPHANDLER) \
-    Canard::StaticCallback<SVCTYPE##_cxx_iface::c_rsp_type> CLINAME##_callback{RSPHANDLER}; \
-    Canard::Client<SVCTYPE##_cxx_iface> CLINAME{IFACE, CLINAME##_callback};
-
-/// @brief create a client instance
-/// @param IFACE interface instance name
-/// @param CLINAME client instance name
-/// @param SVCTYPE service type
-/// @param CLASS class name
-/// @param RSPHANDLER response handler callback member function of OBJ
-#define CANARD_CREATE_CLIENT_CLASS(IFACE, CLINAME, SVCTYPE, CLASS, RSPHANDLER) \
-    Canard::ObjCallback<CLASS, SVCTYPE##_cxx_iface::c_rsp_type> CLINAME##_callback{this, RSPHANDLER}; \
-    Canard::Client<SVCTYPE##_cxx_iface> CLINAME{IFACE, CLINAME##_callback};

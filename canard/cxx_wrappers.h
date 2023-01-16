@@ -32,9 +32,9 @@
 #define BROADCAST_MESSAGE_CXX_IFACE(MSGTYPE, MSG_ID, MSG_SIGNATURE, MSG_MAX_SIZE) \
     class MSGTYPE##_cxx_iface { \
     public: \
-        typedef MSGTYPE c_msg_type; \
-        static constexpr uint32_t (*encode)(c_msg_type*, uint8_t*, bool) = MSGTYPE##_encode; \
-        static constexpr bool (*decode)(const CanardRxTransfer* transfer, c_msg_type*) = MSGTYPE##_decode; \
+        typedef MSGTYPE msgtype; \
+        static constexpr uint32_t (*encode)(msgtype*, uint8_t*, bool) = MSGTYPE##_encode; \
+        static constexpr bool (*decode)(const CanardRxTransfer* transfer, msgtype*) = MSGTYPE##_decode; \
         static constexpr uint16_t ID = MSG_ID; \
         static constexpr uint64_t SIGNATURE = MSG_SIGNATURE; \
         static constexpr uint16_t MAX_SIZE = MSG_MAX_SIZE; \
@@ -43,9 +43,9 @@
 #define BROADCAST_MESSAGE_CXX_IFACE(MSGTYPE, MSG_ID, MSG_SIGNATURE, MSG_MAX_SIZE) \
     class MSGTYPE##_cxx_iface { \
     public: \
-        typedef MSGTYPE c_msg_type; \
-        static constexpr uint32_t (*encode)(c_msg_type*, uint8_t*) = MSGTYPE##_encode; \
-        static constexpr bool (*decode)(const CanardRxTransfer* transfer, c_msg_type*) = MSGTYPE##_decode; \
+        typedef MSGTYPE msgtype; \
+        static constexpr uint32_t (*encode)(msgtype*, uint8_t*) = MSGTYPE##_encode; \
+        static constexpr bool (*decode)(const CanardRxTransfer* transfer, msgtype*) = MSGTYPE##_decode; \
         static constexpr uint16_t ID = MSG_ID; \
         static constexpr uint64_t SIGNATURE = MSG_SIGNATURE; \
         static constexpr uint16_t MAX_SIZE = MSG_MAX_SIZE; \
@@ -56,12 +56,12 @@
 #define SERVICE_MESSAGE_CXX_IFACE(SVCTYPE, SVC_ID, SVC_SIGNATURE, SVC_REQUEST_MAX_SIZE, SVC_RESPONSE_MAX_SIZE) \
     class SVCTYPE##_cxx_iface { \
     public: \
-        typedef SVCTYPE##Request c_req_type; \
-        typedef SVCTYPE##Response c_rsp_type; \
-        static constexpr uint32_t (*req_encode)(c_req_type*, uint8_t*, bool) = SVCTYPE##Request_encode; \
-        static constexpr uint32_t (*rsp_encode)(c_rsp_type*, uint8_t*, bool) = SVCTYPE##Response_encode; \
-        static constexpr bool (*req_decode)(const CanardRxTransfer* transfer, c_req_type*) = SVCTYPE##Request_decode; \
-        static constexpr bool (*rsp_decode)(const CanardRxTransfer* transfer, c_rsp_type*) = SVCTYPE##Response_decode; \
+        typedef SVCTYPE##Request reqtype; \
+        typedef SVCTYPE##Response rsptype; \
+        static constexpr uint32_t (*req_encode)(reqtype*, uint8_t*, bool) = SVCTYPE##Request_encode; \
+        static constexpr uint32_t (*rsp_encode)(rsptype*, uint8_t*, bool) = SVCTYPE##Response_encode; \
+        static constexpr bool (*req_decode)(const CanardRxTransfer* transfer, reqtype*) = SVCTYPE##Request_decode; \
+        static constexpr bool (*rsp_decode)(const CanardRxTransfer* transfer, rsptype*) = SVCTYPE##Response_decode; \
         static constexpr uint16_t ID = SVC_ID; \
         static constexpr uint64_t SIGNATURE = SVC_SIGNATURE; \
         static constexpr uint16_t REQ_MAX_SIZE = SVC_REQUEST_MAX_SIZE; \
@@ -77,12 +77,12 @@
 #define SERVICE_MESSAGE_CXX_IFACE(SVCTYPE, SVC_ID, SVC_SIGNATURE, SVC_REQUEST_MAX_SIZE, SVC_RESPONSE_MAX_SIZE) \
     class SVCTYPE##_cxx_iface { \
     public: \
-        typedef SVCTYPE##Request c_req_type; \
-        typedef SVCTYPE##Response c_rsp_type; \
-        static constexpr uint32_t (*req_encode)(c_req_type*, uint8_t*) = SVCTYPE##Request_encode; \
-        static constexpr uint32_t (*rsp_encode)(c_rsp_type*, uint8_t*) = SVCTYPE##Response_encode; \
-        static constexpr bool (*req_decode)(const CanardRxTransfer* transfer, c_req_type*) = SVCTYPE##Request_decode; \
-        static constexpr bool (*rsp_decode)(const CanardRxTransfer* transfer, c_rsp_type*) = SVCTYPE##Response_decode; \
+        typedef SVCTYPE##Request reqtype; \
+        typedef SVCTYPE##Response rsptype; \
+        static constexpr uint32_t (*req_encode)(reqtype*, uint8_t*) = SVCTYPE##Request_encode; \
+        static constexpr uint32_t (*rsp_encode)(rsptype*, uint8_t*) = SVCTYPE##Response_encode; \
+        static constexpr bool (*req_decode)(const CanardRxTransfer* transfer, reqtype*) = SVCTYPE##Request_decode; \
+        static constexpr bool (*rsp_decode)(const CanardRxTransfer* transfer, rsptype*) = SVCTYPE##Response_decode; \
         static constexpr uint16_t ID = SVC_ID; \
         static constexpr uint64_t SIGNATURE = SVC_SIGNATURE; \
         static constexpr uint16_t REQ_MAX_SIZE = SVC_REQUEST_MAX_SIZE; \
