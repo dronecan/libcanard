@@ -91,7 +91,7 @@ public:
     /// @brief Broadcast a message
     /// @param msg message to send
     /// @return true if the message was put into the queue successfully
-    bool broadcast(typename msgtype::c_msg_type& msg) {
+    bool broadcast(msgtype& msg) {
         return broadcast(msg, interface.is_canfd());
     }
 
@@ -99,9 +99,9 @@ public:
     /// @param msg message to send
     /// @param canfd true if the message should be sent as CAN FD
     /// @return true if the message was put into the queue successfully
-    bool broadcast(typename msgtype::c_msg_type& msg, bool canfd) {
+    bool broadcast(msgtype& msg, bool canfd) {
         // encode the message
-        uint16_t len = msgtype::encode(&msg, msg_buf 
+        uint16_t len = msgtype::cxx_iface::encode(&msg, msg_buf 
 #if CANARD_ENABLE_CANFD
         , !canfd
 #elif CANARD_ENABLE_TAO_OPTION
@@ -112,8 +112,8 @@ public:
         if (len > 0) {
             Transfer msg_transfer;
             msg_transfer.transfer_type = CanardTransferTypeBroadcast;
-            msg_transfer.data_type_id = msgtype::ID;
-            msg_transfer.data_type_signature = msgtype::SIGNATURE;
+            msg_transfer.data_type_id = msgtype::cxx_iface::ID;
+            msg_transfer.data_type_signature = msgtype::cxx_iface::SIGNATURE;
             msg_transfer.payload = msg_buf;
             msg_transfer.payload_len = len;
 #if CANARD_ENABLE_CANFD
@@ -127,7 +127,7 @@ public:
         return false;
     }
 private:
-    uint8_t msg_buf[msgtype::MAX_SIZE]; ///< Buffer to store the encoded message
+    uint8_t msg_buf[msgtype::cxx_iface::MAX_SIZE]; ///< Buffer to store the encoded message
 };
 } // namespace Canard
 
@@ -136,4 +136,4 @@ private:
 /// @param PUBNAME name of the publisher
 /// @param MSGTYPE type of the message
 #define CANARD_PUBLISHER(IFACE, PUBNAME, MSGTYPE) \
-    Canard::Publisher<MSGTYPE##_cxx_iface> PUBNAME{IFACE};
+    Canard::Publisher<MSGTYPE> PUBNAME{IFACE};

@@ -38,8 +38,8 @@ public:
     /// @brief Subscriber Constructor
     /// @param _cb callback function
     /// @param _index HandlerList instance id
-    Subscriber(Callback<typename msgtype::c_msg_type> &_cb, uint8_t _index) :
-    HandlerList(CanardTransferTypeBroadcast, msgtype::ID, msgtype::SIGNATURE, _index),
+    Subscriber(Callback<msgtype> &_cb, uint8_t _index) :
+    HandlerList(CanardTransferTypeBroadcast, msgtype::cxx_iface::ID, msgtype::cxx_iface::SIGNATURE, _index),
     cb (_cb) {
         next = branch_head[index];
         branch_head[index] = this;
@@ -67,8 +67,8 @@ public:
     /// @brief parse the message and call the callback
     /// @param transfer transfer object
     void handle_message(const CanardRxTransfer& transfer) override {
-        typename msgtype::c_msg_type msg {};
-        msgtype::decode(&transfer, &msg);
+        msgtype msg {};
+        msgtype::cxx_iface::decode(&transfer, &msg);
         // call all registered callbacks in one go
         Subscriber<msgtype>* entry = branch_head[index];
         while (entry != nullptr) {
@@ -80,48 +80,68 @@ public:
 private:
     Subscriber<msgtype>* next;
     static Subscriber<msgtype> *branch_head[CANARD_NUM_HANDLERS];
-    Callback<typename msgtype::c_msg_type> &cb;
+    Callback<msgtype> &cb;
 };
 
 template <typename msgtype>
 Subscriber<msgtype>* Subscriber<msgtype>::branch_head[] = {nullptr};
 
+template <typename T, typename msgtype>
+class SubscriberArgCb : public Subscriber<msgtype> {
+public:
+    SubscriberArgCb(T* _arg, void (*_cb)(T* arg, const CanardRxTransfer&, const msgtype&), uint8_t _index) : arg_cb(_arg, _cb), Subscriber<msgtype>(arg_cb, _index) {}
+private:
+    ArgCallback<T, msgtype> arg_cb;
+};
+
+/// @brief allocate an argument callback object using new
+/// @tparam T type of object to pass to the callback
+/// @tparam msgtype type of message handled by the callback
+/// @param arg argument to pass to the callback
+/// @param cb callback function
+/// @param index HandlerList instance id
+/// @return SubscriberArgCb object
+template <typename T, typename msgtype>
+SubscriberArgCb<T, msgtype>* allocate_sub_arg_callback(T* _arg, void (*_cb)(T* arg, const CanardRxTransfer& transfer, const msgtype& msg), uint8_t index) {
+    return (new SubscriberArgCb<T, msgtype>(_arg, _cb, index));
+}
+
+template <typename msgtype>
+class SubscriberStaticCb : public Subscriber<msgtype> {
+public:
+    SubscriberStaticCb(void (*_cb)(const CanardRxTransfer&, const msgtype&), uint8_t _index) : static_cb(_cb), Subscriber<msgtype>(static_cb, _index) {}
+private:
+    StaticCallback<msgtype> static_cb;
+};
+
+/// @brief allocate a static callback object using new
+/// @tparam msgtype type of message handled by the callback
+/// @param cb callback function
+/// @param index HandlerList instance id
+/// @return SubscriberStaticCb object
+template <typename msgtype>
+Subscriber<msgtype>* allocate_sub_static_callback(void (*cb)(const CanardRxTransfer&, const msgtype&), uint8_t index) {
+    return (new SubscriberStaticCb<msgtype>(cb, index));
+}
+
+template <typename T, typename msgtype>
+class SubscriberObjCb : public Subscriber<msgtype> {
+public:
+    SubscriberObjCb(T* _obj, void (T::*_cb)(const CanardRxTransfer&, const msgtype&), uint8_t _index) : obj_cb(_obj, _cb), Subscriber<msgtype>(obj_cb, _index) {}
+private:
+    ObjCallback<T, msgtype> obj_cb;
+};
+
+/// @brief allocate an object callback object using new
+/// @tparam T type of object to pass to the callback
+/// @tparam msgtype type of message handled by the callback
+/// @param obj object to pass to the callback
+/// @param cb callback function
+/// @param index HandlerList instance id
+/// @return SubscriberObjCb object
+template <typename T, typename msgtype>
+SubscriberObjCb<T, msgtype>* allocate_sub_obj_callback(T* obj, void (T::*cb)(const CanardRxTransfer& transfer, const msgtype& msg), uint8_t index) {
+    return (new SubscriberObjCb<T, msgtype>(obj, cb, index));
+}
+
 } // namespace Canard
-
-/// Helper macros to register message handlers
-
-/// @brief Register a message handler using indexed handler_list.
-/// @param NID handler_list instance id
-/// @param SUBNAME name of the subscriber instance
-/// @param MSGTYPE message type name
-/// @param MSG_HANDLER callback function, called when message is received
-#define CANARD_SUBSCRIBE_MSG_INDEXED(NID, SUBNAME, MSGTYPE, MSG_HANDLER) \
-    Canard::StaticCallback<MSGTYPE##_cxx_iface::c_msg_type> SUBNAME##_callback{MSG_HANDLER}; \
-    Canard::Subscriber<MSGTYPE##_cxx_iface> SUBNAME{SUBNAME##_callback, NID};
-
-/// @brief Register a message handler
-/// @param SUBNAME name of the subscriber instance
-/// @param MSGTYPE message type name
-/// @param MSG_HANDLER callback function, called when message is received
-#define CANARD_SUBSCRIBE_MSG(SUBNAME, MSGTYPE, MSG_HANDLER) \
-    Canard::StaticCallback<MSGTYPE##_cxx_iface::c_msg_type> SUBNAME##_callback{MSG_HANDLER}; \
-    Canard::Subscriber<MSGTYPE##_cxx_iface> SUBNAME{SUBNAME##_callback, 0};
-
-/// @brief Register a message handler with object instance using indexed handler_list
-/// @param NID handler_list instance id
-/// @param SUBNAME name of the subscriber instance
-/// @param MSGTYPE message type name
-/// @param CLASS class name
-/// @param MSG_HANDLER callback function, called when message is received
-#define CANARD_SUBSCRIBE_MSG_CLASS_INDEX(NID, SUBNAME, MSGTYPE, CLASS, MSG_HANDLER) \
-    Canard::ObjCallback<CLASS, MSGTYPE##_cxx_iface::c_msg_type> SUBNAME##_callback{this, MSG_HANDLER}; \
-    Canard::Subscriber<MSGTYPE##_cxx_iface> SUBNAME{SUBNAME##_callback, NID};
-
-/// @brief Register a message handler with object instance
-/// @param SUBNAME name of the subscriber instance
-/// @param MSGTYPE message type name
-/// @param CLASS class name
-/// @param MSG_HANDLER callback function, called when message is received
-#define CANARD_SUBSCRIBE_MSG_CLASS(SUBNAME, MSGTYPE, CLASS, MSG_HANDLER) \
-    Canard::ObjCallback<CLASS, MSGTYPE##_cxx_iface::c_msg_type> SUBNAME##_callback{this, MSG_HANDLER}; \
-    Canard::Subscriber<MSGTYPE##_cxx_iface> SUBNAME{SUBNAME##_callback, 0};
