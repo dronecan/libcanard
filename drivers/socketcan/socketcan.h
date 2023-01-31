@@ -18,13 +18,20 @@ extern "C"
 typedef struct
 {
     int fd;
+#ifdef CANARD_ENABLE_CANFD
+    bool canfd;
+#endif
 } SocketCANInstance;
 
 /**
  * Initializes the SocketCAN instance.
  * Returns 0 on success, negative on error.
  */
+#if CANARD_ENABLE_CANFD
+int16_t socketcanInit(SocketCANInstance* out_ins, const char* can_iface_name, bool canfd);
+#else
 int16_t socketcanInit(SocketCANInstance* out_ins, const char* can_iface_name);
+#endif
 
 /**
  * Deinitializes the SocketCAN instance.
