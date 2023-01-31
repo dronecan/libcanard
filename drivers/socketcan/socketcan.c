@@ -16,7 +16,12 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/ioctl.h>
+#ifdef __NuttX__
+#include <nuttx/can.h>
+#include <netpacket/can.h>
+#else
 #include <linux/can.h>
+#endif
 #include <errno.h>
 #include <stdlib.h>
 
@@ -42,7 +47,11 @@ static int16_t getErrorCode()
     }
 }
 
+#if CANARD_ENABLE_CANFD
+int16_t socketcanInit(SocketCANInstance* out_ins, const char* can_iface_name, bool canfd)
+#else
 int16_t socketcanInit(SocketCANInstance* out_ins, const char* can_iface_name)
+#endif
 {
     const size_t iface_name_size = strlen(can_iface_name) + 1;
     if (iface_name_size > IFNAMSIZ)
@@ -70,6 +79,18 @@ int16_t socketcanInit(SocketCANInstance* out_ins, const char* can_iface_name)
     memset(&addr, 0, sizeof(addr));
     addr.can_family = AF_CAN;
     addr.can_ifindex = ifr.ifr_ifindex;
+
+#if CANARD_ENABLE_CANFD
+    if(canfd)
+    {
+    	const int on = 1;
+        if(setsockopt(fd, SOL_CAN_RAW, CAN_RAW_FD_FRAMES, &on, sizeof(on)) < 0)
+        {
+            goto fail1;
+        }
+    }
+    out_ins->canfd = canfd;
+#endif
 
     const int bind_result = bind(fd, (struct sockaddr*)&addr, sizeof(addr));
     if (bind_result < 0)
@@ -114,20 +135,43 @@ int16_t socketcanTransmit(SocketCANInstance* ins, const CanardCANFrame* frame, i
         return -EIO;
     }
 
-    struct can_frame transmit_frame;
-    memset(&transmit_frame, 0, sizeof(transmit_frame));
-    transmit_frame.can_id = frame->id;                  // TODO: Map flags properly
-    transmit_frame.can_dlc = frame->data_len;
-    memcpy(transmit_frame.data, frame->data, frame->data_len);
+#if CANARD_ENABLE_CANFD
+    if(frame->canfd)
+    {
+        struct canfd_frame transmit_frame;
+        memset(&transmit_frame, 0, sizeof(transmit_frame));
+        transmit_frame.can_id = frame->id;                  // TODO: Map flags properly
+        transmit_frame.len = frame->data_len;
+        memcpy(transmit_frame.data, frame->data, frame->data_len);
+        const ssize_t nbytes = write(ins->fd, &transmit_frame, sizeof(transmit_frame));
 
-    const ssize_t nbytes = write(ins->fd, &transmit_frame, sizeof(transmit_frame));
-    if (nbytes < 0)
-    {
-        return getErrorCode();
+        if (nbytes < 0)
+        {
+            return getErrorCode();
+        }
+        if ((size_t)nbytes != sizeof(transmit_frame))
+        {
+            return -EIO;
+        }
     }
-    if ((size_t)nbytes != sizeof(transmit_frame))
+    else
+#endif
     {
-        return -EIO;
+        struct can_frame transmit_frame;
+        memset(&transmit_frame, 0, sizeof(transmit_frame));
+        transmit_frame.can_id = frame->id;                  // TODO: Map flags properly
+        transmit_frame.can_dlc = frame->data_len;
+        memcpy(transmit_frame.data, frame->data, frame->data_len);
+        const ssize_t nbytes = write(ins->fd, &transmit_frame, sizeof(transmit_frame));
+
+        if (nbytes < 0)
+        {
+            return getErrorCode();
+        }
+        if ((size_t)nbytes != sizeof(transmit_frame))
+        {
+            return -EIO;
+        }
     }
 
     return 1;
@@ -154,25 +198,52 @@ int16_t socketcanReceive(SocketCANInstance* ins, CanardCANFrame* out_frame, int3
         return -EIO;
     }
 
-    struct can_frame receive_frame;
-    const ssize_t nbytes = read(ins->fd, &receive_frame, sizeof(receive_frame));
-    if (nbytes < 0)
+#if CANARD_ENABLE_CANFD
+    if(ins->canfd)
     {
-        return getErrorCode();
-    }
-    if ((size_t)nbytes != sizeof(receive_frame))
-    {
-        return -EIO;
-    }
+        struct canfd_frame receive_frame;
+        const ssize_t nbytes = read(ins->fd, &receive_frame, sizeof(receive_frame));
+        if (nbytes < 0)
+        {
+            return getErrorCode();
+        }
+        if ((size_t)nbytes != sizeof(receive_frame))
+        {
+            return -EIO;
+        }
 
-    if (receive_frame.can_dlc > CAN_MAX_DLEN)           // Appeasing Coverity Scan
-    {
-        return -EIO;
-    }
+        if (receive_frame.len > CANFD_MAX_DLEN)           // Appeasing Coverity Scan
+        {
+            return -EIO;
+        }
 
-    out_frame->id = receive_frame.can_id;               // TODO: Map flags properly
-    out_frame->data_len = receive_frame.can_dlc;
-    memcpy(out_frame->data, &receive_frame.data, receive_frame.can_dlc);
+        out_frame->id = receive_frame.can_id;               // TODO: Map flags properly
+        out_frame->data_len = receive_frame.len;
+        memcpy(out_frame->data, &receive_frame.data, receive_frame.len);
+    }
+    else
+#endif
+    {
+        struct can_frame receive_frame;
+        const ssize_t nbytes = read(ins->fd, &receive_frame, sizeof(receive_frame));
+        if (nbytes < 0)
+        {
+            return getErrorCode();
+        }
+        if ((size_t)nbytes != sizeof(receive_frame))
+        {
+            return -EIO;
+        }
+
+        if (receive_frame.can_dlc > CAN_MAX_DLEN)           // Appeasing Coverity Scan
+        {
+            return -EIO;
+        }
+
+        out_frame->id = receive_frame.can_id;               // TODO: Map flags properly
+        out_frame->data_len = receive_frame.can_dlc;
+        memcpy(out_frame->data, &receive_frame.data, receive_frame.can_dlc);
+    }
 
     return 1;
 }
