@@ -40,6 +40,9 @@ public:
         if (index >= CANARD_NUM_HANDLERS) {
             return nullptr;
         }
+#ifdef WITH_SEMAPHORE
+        WITH_SEMAPHORE(sem[index]);
+#endif
         uint32_t _transfer_desc = MAKE_TRANSFER_DESCRIPTOR(data_type_id, transfer_type, src_node_id, dst_node_id);
         // check head
         if (tid_map_head[index] == nullptr) {
@@ -70,6 +73,9 @@ public:
     }
 private:
     static TransferObject *tid_map_head[CANARD_NUM_HANDLERS];
+#ifdef WITH_SEMAPHORE
+    static Canard::Semaphore sem[CANARD_NUM_HANDLERS];
+#endif
     TransferObject *next;
     uint32_t transfer_desc;
     uint8_t tid;
@@ -78,3 +84,5 @@ private:
 } // namespace Canard
 
 #define DEFINE_TRANSFER_OBJECT_HEADS() Canard::TransferObject* Canard::TransferObject::tid_map_head[CANARD_NUM_HANDLERS] = {nullptr}
+
+#define DEFINE_TRANSFER_OBJECT_SEMAPHORES() Canard::Semaphore Canard::TransferObject::sem[CANARD_NUM_HANDLERS];
