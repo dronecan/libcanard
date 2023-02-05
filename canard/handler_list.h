@@ -46,6 +46,9 @@ public:
         if (index >= CANARD_NUM_HANDLERS) {
             return;
         }
+#ifdef WITH_SEMAPHORE
+        WITH_SEMAPHORE(sem[index]);
+#endif
         // find the entry in the registry with the same msgid
         next = head[index];
         head[index] = this;
@@ -59,6 +62,9 @@ public:
 
     // destructor, remove the entry from the singly-linked list
     ~HandlerList() NOINLINE_FUNC {
+#ifdef WITH_SEMAPHORE
+        WITH_SEMAPHORE(sem[index]);
+#endif
         HandlerList* entry = head[index];
         if (entry == this) {
             head[index] = next;
@@ -80,6 +86,9 @@ public:
     /// @return true if the message is handled by this handler list
     static bool accept_message(uint8_t index, uint16_t msgid, uint64_t &signature) NOINLINE_FUNC
     {
+#ifdef WITH_SEMAPHORE
+        WITH_SEMAPHORE(sem[index]);
+#endif
         HandlerList* entry = head[index];
         while (entry != nullptr) {
             if (entry->msgid == msgid) {
@@ -96,6 +105,9 @@ public:
     /// @param transfer transfer object of the request
     static void handle_message(uint8_t index, const CanardRxTransfer& transfer) NOINLINE_FUNC
     {
+#ifdef WITH_SEMAPHORE
+        WITH_SEMAPHORE(sem[index]);
+#endif
         HandlerList* entry = head[index];
         while (entry != nullptr) {
             if (transfer.data_type_id == entry->msgid &&
@@ -117,12 +129,15 @@ protected:
 
 private:
     static HandlerList* head[CANARD_NUM_HANDLERS];
-
+#ifdef WITH_SEMAPHORE
+    static Canard::Semaphore sem[CANARD_NUM_HANDLERS];
+#endif
     uint16_t msgid;
     uint64_t signature;
     CanardTransferType transfer_type;
 };
 
-#define DEFINE_HANDLER_LIST_HEADS() Canard::HandlerList* Canard::HandlerList::head[CANARD_NUM_HANDLERS] = {}
-
 } // namespace Canard
+
+#define DEFINE_HANDLER_LIST_HEADS() Canard::HandlerList* Canard::HandlerList::head[CANARD_NUM_HANDLERS] = {}
+#define DEFINE_HANDLER_LIST_SEMAPHORES() Canard::Semaphore Canard::HandlerList::sem[CANARD_NUM_HANDLERS] = {}

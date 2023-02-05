@@ -72,6 +72,7 @@ public:
         );
         // send the message if encoded successfully
         if (len > 0) {
+            Transfer rsp_transfer;
 #if CANARD_ENABLE_CANFD
             rsp_transfer.canfd = transfer.canfd;
 #endif
@@ -98,7 +99,6 @@ public:
     }
 
 private:
-    Transfer rsp_transfer;
     uint8_t rsp_buf[reqtype::cxx_iface::RSP_MAX_SIZE];
     Interface &interface;
     Callback<reqtype> &cb;
