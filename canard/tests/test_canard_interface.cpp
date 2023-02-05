@@ -1,5 +1,5 @@
-#include "common_test.h"
-#include <interface/canard_interface.h>
+#include "common.h"
+#include <canard_interface.h>
 #include <canard/publisher.h>
 #include <canard/subscriber.h>
 #include <dronecan_msgs.h>
@@ -34,29 +34,30 @@ void handle_node_status(const CanardRxTransfer &transfer, const uavcan_protocol_
 }
 
 TEST(StaticCanardTest, test_publish_subscribe) {
-    CXX_CANARD_TEST__INTERFACE_DEFINE(0);
-    CXX_CANARD_TEST__INTERFACE_DEFINE(1);
+    CANARD_TEST_INTERFACE_DEFINE(0);
+    CANARD_TEST_INTERFACE_DEFINE(1);
     // create publisher for message uavcan_protocol_NodeStatus on interface CoreTestInterface
     // with callback function handle_node_status
-    CANARD_PUBLISHER(CXX_CANARD_TEST__INTERFACE(0), node_status_pub0, uavcan_protocol_NodeStatus);
+    Publisher<uavcan_protocol_NodeStatus> node_status_pub0(CANARD_TEST_INTERFACE(0));
     // create publisher for message uavcan_protocol_NodeStatus on different interface instance CoreTestInterface
     // with callback function handle_node_status
-    CANARD_PUBLISHER(CXX_CANARD_TEST__INTERFACE(1), node_status_pub1, uavcan_protocol_NodeStatus);
+    Publisher<uavcan_protocol_NodeStatus> node_status_pub1(CANARD_TEST_INTERFACE(1));
 
     // create subscriber for message uavcan_protocol_NodeStatus on interface CoreTestInterface
-    CANARD_SUBSCRIBE_MSG(node_status_sub0, uavcan_protocol_NodeStatus, handle_node_status);
+    allocate_sub_static_callback(&handle_node_status, 0);
+
     // create subscriber for message uavcan_protocol_NodeStatus on different interface instance CoreTestInterface
     // with callback function handle_node_status
-    CANARD_SUBSCRIBE_MSG_INDEXED(1, node_status_sub1, uavcan_protocol_NodeStatus, handle_node_status);
+    allocate_sub_static_callback(&handle_node_status, 1);
 
     uint8_t buffer0[1024] {};
     uint8_t buffer1[1024] {};
-    CXX_CANARD_TEST__INTERFACE(0).init(buffer0, sizeof(buffer0));
-    CXX_CANARD_TEST__INTERFACE(1).init(buffer1, sizeof(buffer1));
+    CANARD_TEST_INTERFACE(0).init(buffer0, sizeof(buffer0));
+    CANARD_TEST_INTERFACE(1).init(buffer1, sizeof(buffer1));
 
     // set node id for interfaces
-    CXX_CANARD_TEST__INTERFACE(0).set_node_id(1);
-    CXX_CANARD_TEST__INTERFACE(1).set_node_id(2);
+    CANARD_TEST_INTERFACE(0).set_node_id(1);
+    CANARD_TEST_INTERFACE(1).set_node_id(2);
 
     // create message
     uavcan_protocol_NodeStatus msg {};
@@ -73,7 +74,7 @@ TEST(StaticCanardTest, test_publish_subscribe) {
     called_handle_node_status = false;
     // publish message
     ASSERT_TRUE(node_status_pub0.broadcast(msg));
-    CXX_CANARD_TEST__INTERFACE(0).update_tx(timestamp);
+    CANARD_TEST_INTERFACE(0).update_tx(timestamp);
 
     // check if message was received
     ASSERT_TRUE(called_handle_node_status);
@@ -100,11 +101,8 @@ public:
         ASSERT_EQ(memcmp(res.name.data, "helloworld", res.name.len), 0);
         call_counts++;
     }
-    CANARD_CREATE_CLIENT_CLASS(interface, // interface name
-                           get_node_info_client, // client name
-                           uavcan_protocol_GetNodeInfo, // service name
-                           TestClient0, // class name
-                           &TestClient0::handle_get_node_info_response); // callback function
+    Canard::ObjCallback<TestClient0, uavcan_protocol_GetNodeInfoResponse> get_node_info_client_callback{this, &TestClient0::handle_get_node_info_response};
+    Canard::Client<uavcan_protocol_GetNodeInfoResponse> get_node_info_client{interface, get_node_info_client_callback};
 };
 
 class TestClient1 {
@@ -128,7 +126,7 @@ public:
         call_counts++;
     }
     Canard::ObjCallback<TestClient1, uavcan_protocol_GetNodeInfoResponse> get_node_info_client_callback{this, &TestClient1::handle_get_node_info_response};
-    Canard::Client<uavcan_protocol_GetNodeInfo> get_node_info_client{interface, get_node_info_client_callback};
+    Canard::Client<uavcan_protocol_GetNodeInfoResponse> get_node_info_client{interface, get_node_info_client_callback};
 };
 
 int TestClient0::call_counts = 0;
@@ -156,20 +154,14 @@ public:
         memcpy(res.name.data, "helloworld", res.name.len);
         get_node_info_server.respond(transfer, res);
     }
-    CANARD_CREATE_SERVER_CLASS(interface, // interface name
-                            get_node_info_server, // server name
-                            uavcan_protocol_GetNodeInfo, // service name
-                            TestServer0, // class name
-                            &TestServer0::handle_get_node_info_request); // callback function
+    Canard::ObjCallback<TestServer0, uavcan_protocol_GetNodeInfoRequest> get_node_info_server_callback{this, &TestServer0::handle_get_node_info_request};
+    Canard::Server<uavcan_protocol_GetNodeInfoRequest> get_node_info_server{interface, get_node_info_server_callback};
 };
 
 class TestServer1 {
     Canard::CanardTestInterface &interface;
-    CANARD_CREATE_SERVER_CLASS(interface, // interface name
-                                  get_node_info_server, // server name
-                                  uavcan_protocol_GetNodeInfo, // service name
-                                  TestServer1, // class name
-                                  &TestServer1::handle_get_node_info_request); // callback function
+    Canard::ObjCallback<TestServer1, uavcan_protocol_GetNodeInfoRequest> get_node_info_server_callback{this, &TestServer1::handle_get_node_info_request};
+    Canard::Server<uavcan_protocol_GetNodeInfoRequest> get_node_info_server{interface, get_node_info_server_callback};
 public:
     TestServer1(Canard::CanardTestInterface &_interface) : interface(_interface) {
     }
@@ -196,8 +188,8 @@ int TestServer0::call_counts = 0;
 int TestServer1::call_counts = 0;
 
 TEST(StaticCanardTest, test_multiple_clients) {
-    CXX_CANARD_TEST__INTERFACE_DEFINE(0);
-    CXX_CANARD_TEST__INTERFACE_DEFINE(1);
+    CANARD_TEST_INTERFACE_DEFINE(0);
+    CANARD_TEST_INTERFACE_DEFINE(1);
     // create multiple clients
     TestClient0 *client0[2];
     for (auto &i : client0) {
@@ -216,32 +208,32 @@ TEST(StaticCanardTest, test_multiple_clients) {
 
     uint8_t buffer0[1024] {};
     uint8_t buffer1[1024] {};
-    CXX_CANARD_TEST__INTERFACE(0).init(buffer0, sizeof(buffer0));
-    CXX_CANARD_TEST__INTERFACE(1).init(buffer1, sizeof(buffer1));
+    CANARD_TEST_INTERFACE(0).init(buffer0, sizeof(buffer0));
+    CANARD_TEST_INTERFACE(1).init(buffer1, sizeof(buffer1));
 
     // set node id
-    CXX_CANARD_TEST__INTERFACE(0).set_node_id(1);
-    CXX_CANARD_TEST__INTERFACE(1).set_node_id(2);
+    CANARD_TEST_INTERFACE(0).set_node_id(1);
+    CANARD_TEST_INTERFACE(1).set_node_id(2);
 
     // send request
     uavcan_protocol_GetNodeInfoRequest req {};
     EXPECT_TRUE(client0[0]->get_node_info_client.request(2, req));
-    CXX_CANARD_TEST__INTERFACE(0).update_tx(timestamp);
-    CXX_CANARD_TEST__INTERFACE(1).update_tx(timestamp);
+    CANARD_TEST_INTERFACE(0).update_tx(timestamp);
+    CANARD_TEST_INTERFACE(1).update_tx(timestamp);
     ASSERT_EQ(TestClient0::call_counts, 1);
     EXPECT_TRUE(client0[1]->get_node_info_client.request(2, req));
-    CXX_CANARD_TEST__INTERFACE(0).update_tx(timestamp);
-    CXX_CANARD_TEST__INTERFACE(1).update_tx(timestamp);
+    CANARD_TEST_INTERFACE(0).update_tx(timestamp);
+    CANARD_TEST_INTERFACE(1).update_tx(timestamp);
     ASSERT_EQ(TestClient0::call_counts, 2);
     ASSERT_EQ(TestServer1::call_counts, 2);
 
     EXPECT_TRUE(client1[0]->get_node_info_client.request(1, req));
-    CXX_CANARD_TEST__INTERFACE(1).update_tx(timestamp);
-    CXX_CANARD_TEST__INTERFACE(0).update_tx(timestamp);
+    CANARD_TEST_INTERFACE(1).update_tx(timestamp);
+    CANARD_TEST_INTERFACE(0).update_tx(timestamp);
     ASSERT_EQ(TestClient1::call_counts, 1);
     EXPECT_TRUE(client1[1]->get_node_info_client.request(1, req));
-    CXX_CANARD_TEST__INTERFACE(1).update_tx(timestamp);
-    CXX_CANARD_TEST__INTERFACE(0).update_tx(timestamp);
+    CANARD_TEST_INTERFACE(1).update_tx(timestamp);
+    CANARD_TEST_INTERFACE(0).update_tx(timestamp);
     ASSERT_EQ(TestClient1::call_counts, 2);
     ASSERT_EQ(TestServer0::call_counts, 2);
 }
