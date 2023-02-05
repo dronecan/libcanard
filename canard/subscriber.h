@@ -93,11 +93,13 @@ template <typename msgtype>
 Subscriber<msgtype>* Subscriber<msgtype>::branch_head[] = {nullptr};
 
 template <typename T, typename msgtype>
-class SubscriberArgCb : public Subscriber<msgtype> {
+class SubscriberArgCb {
 public:
-    SubscriberArgCb(T* _arg, void (*_cb)(T* arg, const CanardRxTransfer&, const msgtype&), uint8_t _index) : arg_cb(_arg, _cb), Subscriber<msgtype>(arg_cb, _index) {}
+    SubscriberArgCb(T* _arg, void (*_cb)(T* arg, const CanardRxTransfer&, const msgtype&), uint8_t _index) : arg_cb(_arg, _cb), _sub(arg_cb, _index) {}
+    Subscriber<msgtype>& sub() { return _sub; }
 private:
     ArgCallback<T, msgtype> arg_cb;
+    Subscriber<msgtype> _sub;
 };
 
 /// @brief allocate an argument callback object using new
@@ -113,11 +115,13 @@ SubscriberArgCb<T, msgtype>* allocate_sub_arg_callback(T* _arg, void (*_cb)(T* a
 }
 
 template <typename msgtype>
-class SubscriberStaticCb : public Subscriber<msgtype> {
+class SubscriberStaticCb {
 public:
-    SubscriberStaticCb(void (*_cb)(const CanardRxTransfer&, const msgtype&), uint8_t _index) : static_cb(_cb), Subscriber<msgtype>(static_cb, _index) {}
+    SubscriberStaticCb(void (*_cb)(const CanardRxTransfer&, const msgtype&), uint8_t _index) : static_cb(_cb), _sub(static_cb, _index) {}
+    Subscriber<msgtype>& sub() { return _sub; }
 private:
     StaticCallback<msgtype> static_cb;
+    Subscriber<msgtype> _sub;
 };
 
 /// @brief allocate a static callback object using new
@@ -126,16 +130,18 @@ private:
 /// @param index HandlerList instance id
 /// @return SubscriberStaticCb object
 template <typename msgtype>
-Subscriber<msgtype>* allocate_sub_static_callback(void (*cb)(const CanardRxTransfer&, const msgtype&), uint8_t index) {
+SubscriberStaticCb<msgtype>* allocate_sub_static_callback(void (*cb)(const CanardRxTransfer&, const msgtype&), uint8_t index) {
     return (new SubscriberStaticCb<msgtype>(cb, index));
 }
 
 template <typename T, typename msgtype>
-class SubscriberObjCb : public Subscriber<msgtype> {
+class SubscriberObjCb {
 public:
-    SubscriberObjCb(T* _obj, void (T::*_cb)(const CanardRxTransfer&, const msgtype&), uint8_t _index) : obj_cb(_obj, _cb), Subscriber<msgtype>(obj_cb, _index) {}
+    SubscriberObjCb(T* _obj, void (T::*_cb)(const CanardRxTransfer&, const msgtype&), uint8_t _index) : obj_cb(_obj, _cb), _sub(obj_cb, _index) {}
+    Subscriber<msgtype>& sub() { return _sub; }
 private:
     ObjCallback<T, msgtype> obj_cb;
+    Subscriber<msgtype> _sub;
 };
 
 /// @brief allocate an object callback object using new
