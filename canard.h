@@ -104,6 +104,8 @@ extern "C" {
 /// The size of a memory block in bytes.
 #if CANARD_ENABLE_CANFD
 #define CANARD_MEM_BLOCK_SIZE                       128U
+#elif CANARD_ENABLE_DEADLINE
+#define CANARD_MEM_BLOCK_SIZE                       40U
 #else
 #define CANARD_MEM_BLOCK_SIZE                       32U
 #endif
@@ -206,7 +208,7 @@ struct CanardTxQueueItem
     CanardTxQueueItem* next;
     CanardCANFrame frame;
 };
-
+CANARD_STATIC_ASSERT(sizeof(CanardTxQueueItem) <= CANARD_MEM_BLOCK_SIZE, "Unexpected memory block size");
 /**
  * The application must implement this function and supply a pointer to it to the library during initialization.
  * The library calls this function to determine whether the transfer should be received.
