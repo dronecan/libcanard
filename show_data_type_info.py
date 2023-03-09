@@ -16,9 +16,9 @@ import sys
 import getopt
 
 try:
-    import uavcan
+    import pyuavcan_v0 as uavcan
 except ImportError:
-    sys.stderr.write('PyUAVCAN is not installed. Please install from PIP: sudo pip3 install uavcan\n')
+    sys.stderr.write('PyUAVCAN is not installed. Please install from PIP: sudo pip3 install pyuavcan_v0\n')
     exit(1)
 
 def printUsage():
