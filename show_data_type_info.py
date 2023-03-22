@@ -16,9 +16,9 @@ import sys
 import getopt
 
 try:
-    import uavcan
+    import dronecan
 except ImportError:
-    sys.stderr.write('PyUAVCAN is not installed. Please install from PIP: sudo pip3 install uavcan\n')
+    sys.stderr.write('pyDroneCAN is not installed. Please install from PIP: sudo pip3 install dronecan\n')
     exit(1)
 
 def printUsage():
@@ -41,15 +41,15 @@ if __name__ == "__main__":
             printUsage()
             sys.exit()
         elif opt in ('-c','--custom'):
-            uavcan.load_dsdl(arg)
+            dronecan.load_dsdl(arg)
     
-    longest_name = max(map(len, uavcan.TYPENAMES.keys()))
+    longest_name = max(map(len, dronecan.TYPENAMES.keys()))
     
     header = 'Full Data Type Name'.ljust(longest_name) + ' | DDTID |   Type Signature   |  Max Bit Len  '
     print(header)
     print('-' * len(header))
     
-    for typename, typedef in sorted(uavcan.TYPENAMES.items()):
+    for typename, typedef in sorted(dronecan.TYPENAMES.items()):
         ddtid = typedef.default_dtid if typedef.default_dtid is not None else 'N/A'
         s = '%-*s   % 5s   0x%016x' % (longest_name, typename, ddtid, typedef.get_data_type_signature())
         try:
