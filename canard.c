@@ -208,6 +208,60 @@ int16_t canardBroadcast(CanardInstance* ins,
     return result;
 }
 
+/*
+  the following FromIdx and ToIdx functions allow for the
+  CanardBufferBlock and CanartRxState structures to have the same size
+  on 32 bit and 64 bit platforms, which allows for easier testing in
+  simulator environments
+ */
+CANARD_INTERNAL CanardBufferBlock *CanardBufferFromIdx(CanardPoolAllocator* allocator, canard_buffer_idx_t idx)
+{
+#if CANARD_64_BIT
+    if (idx == CANARD_BUFFER_IDX_NONE) {
+        return NULL;
+    }
+    return (CanardBufferBlock *)(uintptr_t)&((uint8_t *)allocator->arena)[idx-1];
+#else
+    return (CanardBufferBlock *)idx;
+#endif
+}
+
+CANARD_INTERNAL canard_buffer_idx_t CanardBufferToIdx(CanardPoolAllocator* allocator, const CanardBufferBlock *buf)
+{
+#if CANARD_64_BIT
+    if (buf == NULL) {
+        return CANARD_BUFFER_IDX_NONE;
+    }
+    return 1U+((canard_buffer_idx_t)((uint8_t *)buf - (uint8_t *)allocator->arena));
+#else
+    return (canard_buffer_idx_t)buf;
+#endif
+}
+
+CANARD_INTERNAL CanardRxState *CanardRxFromIdx(CanardPoolAllocator* allocator, canard_buffer_idx_t idx)
+{
+#if CANARD_64_BIT
+    if (idx == CANARD_BUFFER_IDX_NONE) {
+        return NULL;
+    }
+    return (CanardRxState *)(uintptr_t)&((uint8_t *)allocator->arena)[idx-1];
+#else
+    return (CanardRxState *)idx;
+#endif
+}
+
+CANARD_INTERNAL canard_buffer_idx_t CanardRxToIdx(CanardPoolAllocator* allocator, const CanardRxState *rx)
+{
+#if CANARD_64_BIT
+    if (rx == NULL) {
+        return CANARD_BUFFER_IDX_NONE;
+    }
+    return 1U+((canard_buffer_idx_t)((uint8_t *)rx - (uint8_t *)allocator->arena));
+#else
+    return (canard_buffer_idx_t)rx;
+#endif
+}
+
 CANARD_INTERNAL uint16_t calculateCRC(const void* payload, uint16_t payload_len, uint64_t data_type_signature
 #if CANARD_ENABLE_CANFD
                         ,bool canfd
@@ -370,7 +424,7 @@ int16_t canardHandleRxFrame(CanardInstance* ins, const CanardCANFrame* frame, ui
     }
     else
     {
-        rx_state = findRxState(ins->rx_states, transfer_descriptor);
+        rx_state = findRxState(ins, transfer_descriptor);
 
         if (rx_state == NULL)
         {
@@ -389,7 +443,7 @@ int16_t canardHandleRxFrame(CanardInstance* ins, const CanardCANFrame* frame, ui
         computeTransferIDForwardDistance((uint8_t) rx_state->transfer_id, TRANSFER_ID_FROM_TAIL_BYTE(tail_byte)) > 1;
     const bool iface_switch_allowed = (timestamp_usec - rx_state->timestamp_usec) > IFACE_SWITCH_DELAY_USEC;
     const bool non_wrapped_tid = computeTransferIDForwardDistance(TRANSFER_ID_FROM_TAIL_BYTE(tail_byte), (uint8_t) rx_state->transfer_id) < (1 << (TRANSFER_ID_BIT_LEN-1));
-    const bool incomplete_frame = rx_state->buffer_blocks != NULL;
+    const bool incomplete_frame = rx_state->buffer_blocks != CANARD_BUFFER_IDX_NONE;
 
     const bool need_restart =
             (not_initialized) ||
@@ -506,8 +560,8 @@ int16_t canardHandleRxFrame(CanardInstance* ins, const CanardCANFrame* frame, ui
         else
         {
             // Like above, except that the beginning goes into the last block of the storage
-            CanardBufferBlock* block = rx_state->buffer_blocks;
-            if (block != NULL)          // If there's no middle, that's fine, we'll use only head and tail
+            CanardBufferBlock* block = CanardBufferFromIdx(&ins->allocator, rx_state->buffer_blocks);
+            if (block != NULL)
             {
                 size_t offset = CANARD_MULTIFRAME_RX_PAYLOAD_HEAD_SIZE;    // Payload offset of the first block
                 while (block->next != NULL)
@@ -532,7 +586,7 @@ int16_t canardHandleRxFrame(CanardInstance* ins, const CanardCANFrame* frame, ui
         CanardRxTransfer rx_transfer = {
             .timestamp_usec = timestamp_usec,
             .payload_head = rx_state->buffer_head,
-            .payload_middle = rx_state->buffer_blocks,
+            .payload_middle = CanardBufferFromIdx(&ins->allocator, rx_state->buffer_blocks),
             .payload_tail = (tail_offset >= frame_payload_size) ? NULL : (&frame->data[tail_offset]),
             .payload_len = (uint16_t)(rx_state->payload_len + frame_payload_size),
             .data_type_id = data_type_id,
@@ -549,7 +603,7 @@ int16_t canardHandleRxFrame(CanardInstance* ins, const CanardCANFrame* frame, ui
 #endif
         };
 
-        rx_state->buffer_blocks = NULL;     // Block list ownership has been transferred to rx_transfer!
+        rx_state->buffer_blocks = CANARD_BUFFER_IDX_NONE;     // Block list ownership has been transferred to rx_transfer!
 
         // CRC validation
         rx_state->calculated_crc = crcAdd((uint16_t)rx_state->calculated_crc, frame->data, frame->data_len - 1U);
@@ -587,7 +641,7 @@ void canardCleanupStaleTransfers(CanardInstance* ins, uint64_t current_time_usec
             if (state == ins->rx_states)
             {
                 releaseStatePayload(ins, state);
-                ins->rx_states = ins->rx_states->next;
+                ins->rx_states = CanardRxFromIdx(&ins->allocator, ins->rx_states->next);
                 freeBlock(&ins->allocator, state);
                 state = ins->rx_states;
                 prev = state;
@@ -597,13 +651,13 @@ void canardCleanupStaleTransfers(CanardInstance* ins, uint64_t current_time_usec
                 releaseStatePayload(ins, state);
                 prev->next = state->next;
                 freeBlock(&ins->allocator, state);
-                state = prev->next;
+                state = CanardRxFromIdx(&ins->allocator, prev->next);
             }
         }
         else
         {
             prev = state;
-            state = state->next;
+            state = CanardRxFromIdx(&ins->allocator, state->next);
         }
     }
 }
@@ -882,7 +936,7 @@ uint16_t canardConvertNativeFloatToFloat16(float value)
     const union FP32 f16inf = { 31UL << 23U };
     const union FP32 magic = { 15UL << 23U };
     const uint32_t sign_mask = 0x80000000UL;
-    const uint32_t round_mask = ~0xFFFUL;
+    const uint32_t round_mask = 0xFFFFF000UL;
 
     union FP32 in;
     in.f = value;
@@ -1236,7 +1290,7 @@ CANARD_INTERNAL bool isPriorityHigher(uint32_t rhs, uint32_t id)
  */
 CANARD_INTERNAL void prepareForNextTransfer(CanardRxState* state)
 {
-    CANARD_ASSERT(state->buffer_blocks == NULL);
+    CANARD_ASSERT(state->buffer_blocks == CANARD_BUFFER_IDX_NONE);
     state->transfer_id++;
     state->payload_len = 0;
     state->next_toggle = 0;
@@ -1307,7 +1361,7 @@ CANARD_INTERNAL CanardRxState* traverseRxStates(CanardInstance* ins, uint32_t tr
         return states;
     }
 
-    states = findRxState(states, transfer_descriptor);
+    states = findRxState(ins, transfer_descriptor);
     if (states != NULL)
     {
         return states;
@@ -1321,15 +1375,16 @@ CANARD_INTERNAL CanardRxState* traverseRxStates(CanardInstance* ins, uint32_t tr
 /**
  * returns pointer to the rx state of transfer descriptor or null if not found
  */
-CANARD_INTERNAL CanardRxState* findRxState(CanardRxState* state, uint32_t transfer_descriptor)
+CANARD_INTERNAL CanardRxState* findRxState(CanardInstance *ins, uint32_t transfer_descriptor)
 {
+    CanardRxState *state = ins->rx_states;
     while (state != NULL)
     {
         if (state->dtid_tt_snid_dnid == transfer_descriptor)
         {
             return state;
         }
-        state = state->next;
+        state = CanardRxFromIdx(&ins->allocator, state->next);
     }
     return NULL;
 }
@@ -1346,7 +1401,7 @@ CANARD_INTERNAL CanardRxState* prependRxState(CanardInstance* ins, uint32_t tran
         return NULL;
     }
 
-    state->next = ins->rx_states;
+    state->next = CanardRxToIdx(&ins->allocator, ins->rx_states);
     ins->rx_states = state;
     return state;
 }
@@ -1354,8 +1409,8 @@ CANARD_INTERNAL CanardRxState* prependRxState(CanardInstance* ins, uint32_t tran
 CANARD_INTERNAL CanardRxState* createRxState(CanardPoolAllocator* allocator, uint32_t transfer_descriptor)
 {
     CanardRxState init = {
-        .next = NULL,
-        .buffer_blocks = NULL,
+        .next = CANARD_BUFFER_IDX_NONE,
+        .buffer_blocks = CANARD_BUFFER_IDX_NONE,
         .dtid_tt_snid_dnid = transfer_descriptor
     };
 
@@ -1371,11 +1426,12 @@ CANARD_INTERNAL CanardRxState* createRxState(CanardPoolAllocator* allocator, uin
 
 CANARD_INTERNAL uint64_t releaseStatePayload(CanardInstance* ins, CanardRxState* rxstate)
 {
-    while (rxstate->buffer_blocks != NULL)
+    while (rxstate->buffer_blocks != CANARD_BUFFER_IDX_NONE)
     {
-        CanardBufferBlock* const temp = rxstate->buffer_blocks->next;
-        freeBlock(&ins->allocator, rxstate->buffer_blocks);
-        rxstate->buffer_blocks = temp;
+        CanardBufferBlock* block = CanardBufferFromIdx(&ins->allocator, rxstate->buffer_blocks);
+        CanardBufferBlock* const temp = block->next;
+        freeBlock(&ins->allocator, block);
+        rxstate->buffer_blocks = CanardBufferToIdx(&ins->allocator, temp);
     }
     rxstate->payload_len = 0;
     return CANARD_OK;
@@ -1419,16 +1475,15 @@ CANARD_INTERNAL int16_t bufferBlockPushBytes(CanardPoolAllocator* allocator,
     CanardBufferBlock* block = NULL;
 
     // buffer blocks uninitialized
-    if (state->buffer_blocks == NULL)
+    if (state->buffer_blocks == CANARD_BUFFER_IDX_NONE)
     {
-        state->buffer_blocks = createBufferBlock(allocator);
-
-        if (state->buffer_blocks == NULL)
+        block = createBufferBlock(allocator);
+        state->buffer_blocks = CanardBufferToIdx(allocator, block);
+        if (block == NULL)
         {
             return -CANARD_ERROR_OUT_OF_MEMORY;
         }
 
-        block = state->buffer_blocks;
         index_at_nth_block = 0;
     }
     else
@@ -1436,7 +1491,7 @@ CANARD_INTERNAL int16_t bufferBlockPushBytes(CanardPoolAllocator* allocator,
         uint16_t nth_block = 1;
 
         // get to block
-        block = state->buffer_blocks;
+        block = CanardBufferFromIdx(allocator, state->buffer_blocks);
         while (block->next != NULL)
         {
             nth_block++;
@@ -1649,7 +1704,7 @@ CANARD_INTERNAL bool isBigEndian(void)
 #endif
 }
 
-CANARD_INTERNAL void swapByteOrder(void* data, size_t size)
+CANARD_INTERNAL void swapByteOrder(void* data, unsigned size)
 {
     CANARD_ASSERT(data != NULL);
 
@@ -1710,14 +1765,16 @@ CANARD_INTERNAL uint16_t crcAdd(uint16_t crc_val, const uint8_t* bytes, size_t l
  *  Pool Allocator functions
  */
 CANARD_INTERNAL void initPoolAllocator(CanardPoolAllocator* allocator,
-                                       CanardPoolAllocatorBlock* buf,
+                                       void* buf,
                                        uint16_t buf_len)
 {
     size_t current_index = 0;
+    CanardPoolAllocatorBlock *abuf = buf;
+    allocator->arena = buf;
     CanardPoolAllocatorBlock** current_block = &(allocator->free_list);
     while (current_index < buf_len)
     {
-        *current_block = &buf[current_index];
+        *current_block = &abuf[current_index];
         current_block = &((*current_block)->next);
         current_index++;
     }

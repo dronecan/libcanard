@@ -53,7 +53,7 @@ CANARD_INTERNAL CanardRxState* createRxState(CanardPoolAllocator* allocator,
 CANARD_INTERNAL CanardRxState* prependRxState(CanardInstance* ins,
                                               uint32_t transfer_descriptor);
 
-CANARD_INTERNAL CanardRxState* findRxState(CanardRxState* state,
+CANARD_INTERNAL CanardRxState* findRxState(CanardInstance *ins,
                                            uint32_t transfer_descriptor);
 
 CANARD_INTERNAL int16_t bufferBlockPushBytes(CanardPoolAllocator* allocator,
@@ -146,7 +146,7 @@ CANARD_INTERNAL uint16_t crcAdd(uint16_t crc_val,
  * @param [in] buf_len The number of blocks in buf.
  */
 CANARD_INTERNAL void initPoolAllocator(CanardPoolAllocator* allocator,
-                                       CanardPoolAllocatorBlock* buf,
+                                       void *buf,
                                        uint16_t buf_len);
 
 /**

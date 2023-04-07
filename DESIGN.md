@@ -92,6 +92,14 @@ According to the transport layer specification, the following operations must be
 
 New blocks should be allocated ad hoc, however their removal should happen at once, after the data is processed upon completion of transfer reception.
 
+### Buffer Indexes
+
+To allow for building on both 32 bit and 64 bit systems we use a
+canard_buffer_idx_t to represent an index into the memory pool. The
+functions CanardBufferFromIdx() CanardBufferToIdx(), CanardRxFromIdx()
+and CanardRxToIdx() are used to convert from and to indexes and the
+associated pointers.
+
 ### RX transfer states
 
 The library will have to keep some state associated with every unique incoming transfer.
@@ -112,8 +120,8 @@ Hence, size of the structure must not exceed the size of the allocatable block (
 ```c
 typedef struct CanardRxState
 {
-    struct CanardRxState* next;
-    CanardBufferBlock* buffer_blocks;
+    canard_buffer_idx_t next_idx;
+    canard_buffer_idx_t buffer_blocks_idx;
 
     uint64_t timestamp_usec;
 
@@ -132,8 +140,6 @@ typedef struct CanardRxState
 
 Few things to note:
 
-* Size of the structure will exceed 32 bytes on platforms where size of the pointer is 64 bits.
-    This, however, is not a problem, because 64 bit platforms are not of interest (see the list of features).
 * `timestamp_usec` keeps the timestamp at which the transfer that is currently being received was started, i.e. when the first frame of it was received.
     This value is needed for detection and removal of stale RX state objects, and it is also passed to the application as a transfer reception timestamp.
 * The last field of the structure is buffer_head, size of which is 32 - sizeof(CanardRxState).
