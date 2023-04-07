@@ -222,6 +222,7 @@ CANARD_INTERNAL CanardBufferBlock *CanardBufferFromIdx(CanardPoolAllocator* allo
     }
     return (CanardBufferBlock *)(uintptr_t)&((uint8_t *)allocator->arena)[idx-1];
 #else
+    (void)allocator;
     return (CanardBufferBlock *)idx;
 #endif
 }
@@ -234,6 +235,7 @@ CANARD_INTERNAL canard_buffer_idx_t CanardBufferToIdx(CanardPoolAllocator* alloc
     }
     return 1U+((canard_buffer_idx_t)((uint8_t *)buf - (uint8_t *)allocator->arena));
 #else
+    (void)allocator;
     return (canard_buffer_idx_t)buf;
 #endif
 }
@@ -246,6 +248,7 @@ CANARD_INTERNAL CanardRxState *CanardRxFromIdx(CanardPoolAllocator* allocator, c
     }
     return (CanardRxState *)(uintptr_t)&((uint8_t *)allocator->arena)[idx-1];
 #else
+    (void)allocator;
     return (CanardRxState *)idx;
 #endif
 }
@@ -258,6 +261,7 @@ CANARD_INTERNAL canard_buffer_idx_t CanardRxToIdx(CanardPoolAllocator* allocator
     }
     return 1U+((canard_buffer_idx_t)((uint8_t *)rx - (uint8_t *)allocator->arena));
 #else
+    (void)allocator;
     return (canard_buffer_idx_t)rx;
 #endif
 }
