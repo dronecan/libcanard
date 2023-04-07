@@ -146,7 +146,32 @@ extern "C" {
 #define CANARD_TRANSFER_PAYLOAD_LEN_BITS            10U
 #define CANARD_MAX_TRANSFER_PAYLOAD_LEN             ((1U << CANARD_TRANSFER_PAYLOAD_LEN_BITS) - 1U)
 
+#ifndef CANARD_64_BIT
+#ifdef __WORDSIZE
+#define CANARD_64_BIT (__WORDSIZE == 64)
+#else
+#define CANARD_64_BIT 0
+#endif
+#endif
 
+/*
+  canard_buffer_idx_t is used to avoid pointers in data structures
+  that have to have the same size on both 32 bit and 64 bit
+  platforms. It is an index into mem_arena passed to canardInit
+  treated as a uint8_t array
+
+  A value of CANARD_BUFFER_IDX_NONE means a NULL pointer
+ */
+#if CANARD_64_BIT
+typedef uint32_t canard_buffer_idx_t;
+#define CANARD_BUFFER_IDX_NONE 0U
+#else
+typedef void* canard_buffer_idx_t;
+#define CANARD_BUFFER_IDX_NONE NULL
+#endif
+
+
+    
 /**
  * This data type holds a standard CAN 2.0B data frame with 29-bit ID.
  */
@@ -256,15 +281,6 @@ typedef struct
 
 /**
  * INTERNAL DEFINITION, DO NOT USE DIRECTLY.
- */
-typedef struct
-{
-    CanardPoolAllocatorBlock* free_list;
-    CanardPoolAllocatorStatistics statistics;
-} CanardPoolAllocator;
-
-/**
- * INTERNAL DEFINITION, DO NOT USE DIRECTLY.
  * Buffer block for received data.
  */
 typedef struct CanardBufferBlock
@@ -276,11 +292,21 @@ typedef struct CanardBufferBlock
 /**
  * INTERNAL DEFINITION, DO NOT USE DIRECTLY.
  */
+typedef struct
+{
+    CanardPoolAllocatorBlock* free_list;
+    CanardPoolAllocatorStatistics statistics;
+    void *arena;
+} CanardPoolAllocator;
+
+
+/**
+ * INTERNAL DEFINITION, DO NOT USE DIRECTLY.
+ */
 struct CanardRxState
 {
-    struct CanardRxState* next;
-
-    CanardBufferBlock* buffer_blocks;
+    canard_buffer_idx_t next;
+    canard_buffer_idx_t buffer_blocks;
 
     uint64_t timestamp_usec;
 
@@ -625,12 +651,10 @@ float canardConvertFloat16ToNativeFloat(uint16_t value);
 /// Abort the build if the current platform is not supported.
 #if CANARD_ENABLE_CANFD
 CANARD_STATIC_ASSERT(((uint32_t)CANARD_MULTIFRAME_RX_PAYLOAD_HEAD_SIZE) < 128,
-                     "Platforms where sizeof(void*) > 4 are not supported. "
-                     "On AMD64 use 32-bit mode (e.g. GCC flag -m32).");
+                     "Please define CANARD_64_BIT=1 for 64 bit builds");
 #else
 CANARD_STATIC_ASSERT(((uint32_t)CANARD_MULTIFRAME_RX_PAYLOAD_HEAD_SIZE) < 32,
-                     "Platforms where sizeof(void*) > 4 are not supported. "
-                     "On AMD64 use 32-bit mode (e.g. GCC flag -m32).");
+                     "Please define CANARD_64_BIT=1 for 64 bit builds");
 #endif
 
 #ifdef __cplusplus
