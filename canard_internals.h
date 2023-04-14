@@ -91,20 +91,8 @@ CANARD_INTERNAL uint8_t dataLengthToDlc(uint8_t data_length);
 /// Returns the number of frames enqueued
 CANARD_INTERNAL int16_t enqueueTxFrames(CanardInstance* ins,
                                         uint32_t can_id,
-                                        uint8_t* transfer_id,
                                         uint16_t crc,
-                                        const uint8_t* payload,
-                                        uint16_t payload_len
-#if CANARD_ENABLE_DEADLINE
-                                        ,uint64_t tx_deadline
-#endif
-#if CANARD_MULTI_IFACE
-                                        ,uint8_t iface_mask
-#endif
-#if CANARD_ENABLE_CANFD
-                                        ,bool canfd
-#endif
-                                        );
+                                        CanardTxTransfer* transfer);
 
 CANARD_INTERNAL void copyBitArray(const uint8_t* src,
                                   uint32_t src_offset,
@@ -160,13 +148,7 @@ CANARD_INTERNAL void* allocateBlock(CanardPoolAllocator* allocator);
 CANARD_INTERNAL void freeBlock(CanardPoolAllocator* allocator,
                                void* p);
 
-CANARD_INTERNAL uint16_t calculateCRC(const void* payload, 
-                                      uint16_t payload_len, 
-                                      uint64_t data_type_signature
-#if CANARD_ENABLE_CANFD
-                                      ,bool canfd
-#endif
-);
+CANARD_INTERNAL uint16_t calculateCRC(const CanardTxTransfer* transfer_object);
 
 #ifdef __cplusplus
 }

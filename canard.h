@@ -228,6 +228,29 @@ typedef struct CanardInstance CanardInstance;
 typedef struct CanardRxTransfer CanardRxTransfer;
 typedef struct CanardRxState CanardRxState;
 typedef struct CanardTxQueueItem CanardTxQueueItem;
+
+typedef struct {
+    CanardTransferType transfer_type; ///< Type of transfer: CanardTransferTypeBroadcast, CanardTransferTypeRequest, CanardTransferTypeResponse
+    uint64_t data_type_signature; ///< Signature of the message/service
+    uint16_t data_type_id; ///< ID of the message/service
+    uint8_t* inout_transfer_id; ///< Transfer ID reference
+    uint8_t priority; ///< Priority of the transfer
+    const uint8_t* payload; ///< Pointer to the payload
+    uint16_t payload_len; ///< Length of the payload
+#if CANARD_ENABLE_CANFD
+    bool canfd; ///< True if CAN FD is enabled
+#endif
+#if CANARD_ENABLE_DEADLINE
+    uint64_t deadline_usec; ///< Deadline in microseconds
+#endif
+#if CANARD_MULTI_IFACE
+    uint8_t iface_mask; ///< Bitmask of interfaces to send the transfer on
+#endif
+#if CANARD_ENABLE_TAO_OPTION
+    bool tao; ///< True if tail array optimization is enabled
+#endif
+} CanardTxTransfer;
+
 struct CanardTxQueueItem
 {
     CanardTxQueueItem* next;
@@ -478,6 +501,9 @@ int16_t canardBroadcast(CanardInstance* ins,            ///< Library instance
 #endif
                         );
 
+int16_t canardBroadcastObj(CanardInstance* ins,            ///< Library instance
+                           CanardTxTransfer* transfer      ///< Transfer object
+                        );
 
 /**
  * Sends a request or a response transfer.
@@ -516,6 +542,10 @@ int16_t canardRequestOrRespond(CanardInstance* ins,             ///< Library ins
 #endif
                             );
 
+int16_t canardRequestOrRespondObj(CanardInstance* ins,             ///< Library instance
+                                  uint8_t destination_node_id,     ///< Node ID of the server/client
+                                  CanardTxTransfer* transfer       ///< Transfer object
+                                );
 /**
  * Returns a pointer to the top priority frame in the TX queue.
  * Returns NULL if the TX queue is empty.
