@@ -228,6 +228,42 @@ typedef struct CanardInstance CanardInstance;
 typedef struct CanardRxTransfer CanardRxTransfer;
 typedef struct CanardRxState CanardRxState;
 typedef struct CanardTxQueueItem CanardTxQueueItem;
+
+/**
+ * This struture provides information about encoded dronecan frame that needs
+ * to be put on the wire.
+ * 
+ * In case of broadcast or request pointer to the Transfer ID should point to a persistent variable
+ * (e.g. static or heap allocated, not on the stack); it will be updated by the library after every transmission. 
+ * The Transfer ID value cannot be shared between transfers that have different descriptors!
+ * More on this in the transport layer specification.
+ * 
+ * For the case of response, the pointer to the Transfer ID is treated as const and generally points to transfer id
+ * in CanardRxTransfer structure.
+ * 
+ */
+typedef struct {
+    CanardTransferType transfer_type; ///< Type of transfer: CanardTransferTypeBroadcast, CanardTransferTypeRequest, CanardTransferTypeResponse
+    uint64_t data_type_signature; ///< Signature of the message/service
+    uint16_t data_type_id; ///< ID of the message/service
+    uint8_t* inout_transfer_id; ///< Transfer ID reference
+    uint8_t priority; ///< Priority of the transfer
+    const uint8_t* payload; ///< Pointer to the payload
+    uint16_t payload_len; ///< Length of the payload
+#if CANARD_ENABLE_CANFD
+    bool canfd; ///< True if CAN FD is enabled
+#endif
+#if CANARD_ENABLE_DEADLINE
+    uint64_t deadline_usec; ///< Deadline in microseconds
+#endif
+#if CANARD_MULTI_IFACE
+    uint8_t iface_mask; ///< Bitmask of interfaces to send the transfer on
+#endif
+#if CANARD_ENABLE_TAO_OPTION
+    bool tao; ///< True if tail array optimization is enabled
+#endif
+} CanardTxTransfer;
+
 struct CanardTxQueueItem
 {
     CanardTxQueueItem* next;
@@ -446,20 +482,36 @@ uint8_t canardGetLocalNodeID(const CanardInstance* ins);
 void canardForgetLocalNodeID(CanardInstance* ins);
 
 /**
+ * Initialise TX transfer object.
+ * Should be called at least once before using transfer object to send transmissions.
+*/
+void canardInitTxTransfer(CanardTxTransfer* transfer);
+
+/**
  * Sends a broadcast transfer.
  * If the node is in passive mode, only single frame transfers will be allowed (they will be transmitted as anonymous).
  *
- * For anonymous transfers, maximum data type ID is limited to 3 (see specification for details).
+ * For anonymous transfers, maximum data type ID (CanardTxTransfer::data_type_id) is limited to 3 (see specification for details).
  *
- * Please refer to the specification for more details about data type signatures. Signature for any data type can be
- * obtained in many ways; for example, using the command line tool distributed with Libcanard (see the repository).
+ * Please refer to the specification for more details about data type signatures (CanardTxTransfer::data_type_signature). Signature for 
+ * any data type can be obtained in many ways; for example, using the generated code generated using dronecan_dsdlc (see the repository).
  *
- * Pointer to the Transfer ID should point to a persistent variable (e.g. static or heap allocated, not on the stack);
- * it will be updated by the library after every transmission. The Transfer ID value cannot be shared between
- * transfers that have different descriptors! More on this in the transport layer specification.
+ * Use CanardTxTransfer structure to pass the transfer parameters. The structure is initialized by the
+ * canardInitTxTransfer() function.
+ * 
+ * Pointer to the Transfer ID (CanardTxTransfer::inout_transfer_id) should point to a persistent variable
+ * (e.g. static or heap allocated, not on the stack); it will be updated by the library after every transmission. 
+ * The Transfer ID value cannot be shared between transfers that have different descriptors!
+ * More on this in the transport layer specification.
  *
  * Returns the number of frames enqueued, or negative error code.
  */
+
+int16_t canardBroadcastObj(CanardInstance* ins,            ///< Library instance
+                           CanardTxTransfer* transfer      ///< Transfer object
+                          );
+
+// Legacy API, try to avoid using it, as this will not be extended with new features
 int16_t canardBroadcast(CanardInstance* ins,            ///< Library instance
                         uint64_t data_type_signature,   ///< See above
                         uint16_t data_type_id,          ///< Refer to the specification
@@ -477,25 +529,29 @@ int16_t canardBroadcast(CanardInstance* ins,            ///< Library instance
                         ,bool canfd                      ///< Is the frame canfd
 #endif
                         );
-
-
 /**
  * Sends a request or a response transfer.
  * Fails if the node is in passive mode.
  *
- * Please refer to the specification for more details about data type signatures. Signature for any data type can be
- * obtained in many ways; for example, using the command line tool distributed with Libcanard (see the repository).
+ * Please refer to the specification for more details about data type signatures (CanardTxTransfer::data_type_signature). Signature for 
+ * any data type can be obtained in many ways; for example, using the generated code generated using dronecan_dsdlc (see the repository).
  *
- * For Request transfers, the pointer to the Transfer ID should point to a persistent variable (e.g. static or heap
- * allocated, not on the stack); it will be updated by the library after every request. The Transfer ID value
- * cannot be shared between requests that have different descriptors! More on this in the transport layer
- * specification.
+ * Pointer to the Transfer ID (CanardTxTransfer::inout_transfer_id) should point to a persistent variable
+ * (e.g. static or heap allocated, not on the stack); it will be updated by the library after every request.
+ * The Transfer ID value cannot be shared between requests that have different descriptors!
+ * More on this in the transport layer specification.
  *
- * For Response transfers, the pointer to the Transfer ID will be treated as const (i.e. read-only), and normally it
- * should point to the transfer_id field of the structure CanardRxTransfer.
+ * For Response transfers, the pointer to the Transfer ID(CanardTxTransfer::inout_transfer_id) will be treated as const (i.e. read-only),
+ * and normally it should point to the transfer_id field of the structure CanardRxTransfer.
  *
  * Returns the number of frames enqueued, or negative error code.
  */
+
+int16_t canardRequestOrRespondObj(CanardInstance* ins,             ///< Library instance
+                                  uint8_t destination_node_id,     ///< Node ID of the server/client
+                                  CanardTxTransfer* transfer       ///< Transfer object
+                                );
+// Legacy API, try to avoid using it, as this will not be extended with new features
 int16_t canardRequestOrRespond(CanardInstance* ins,             ///< Library instance
                                uint8_t destination_node_id,     ///< Node ID of the server/client
                                uint64_t data_type_signature,    ///< See above
@@ -515,7 +571,6 @@ int16_t canardRequestOrRespond(CanardInstance* ins,             ///< Library ins
                                 ,bool canfd                     ///< Is the frame canfd
 #endif
                             );
-
 /**
  * Returns a pointer to the top priority frame in the TX queue.
  * Returns NULL if the TX queue is empty.
