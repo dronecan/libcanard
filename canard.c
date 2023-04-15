@@ -231,7 +231,7 @@ int16_t canardBroadcastObj(CanardInstance* ins, CanardTxTransfer* transfer_objec
   on 32 bit and 64 bit platforms, which allows for easier testing in
   simulator environments
  */
-CANARD_INTERNAL CanardBufferBlock *CanardBufferFromIdx(CanardPoolAllocator* allocator, canard_buffer_idx_t idx)
+CANARD_INTERNAL CanardBufferBlock *canardBufferFromIdx(CanardPoolAllocator* allocator, canard_buffer_idx_t idx)
 {
 #if CANARD_64_BIT
     if (idx == CANARD_BUFFER_IDX_NONE) {
@@ -244,7 +244,7 @@ CANARD_INTERNAL CanardBufferBlock *CanardBufferFromIdx(CanardPoolAllocator* allo
 #endif
 }
 
-CANARD_INTERNAL canard_buffer_idx_t CanardBufferToIdx(CanardPoolAllocator* allocator, const CanardBufferBlock *buf)
+CANARD_INTERNAL canard_buffer_idx_t canardBufferToIdx(CanardPoolAllocator* allocator, const CanardBufferBlock *buf)
 {
 #if CANARD_64_BIT
     if (buf == NULL) {
@@ -257,7 +257,7 @@ CANARD_INTERNAL canard_buffer_idx_t CanardBufferToIdx(CanardPoolAllocator* alloc
 #endif
 }
 
-CANARD_INTERNAL CanardRxState *CanardRxFromIdx(CanardPoolAllocator* allocator, canard_buffer_idx_t idx)
+CANARD_INTERNAL CanardRxState *canardRxFromIdx(CanardPoolAllocator* allocator, canard_buffer_idx_t idx)
 {
 #if CANARD_64_BIT
     if (idx == CANARD_BUFFER_IDX_NONE) {
@@ -270,7 +270,7 @@ CANARD_INTERNAL CanardRxState *CanardRxFromIdx(CanardPoolAllocator* allocator, c
 #endif
 }
 
-CANARD_INTERNAL canard_buffer_idx_t CanardRxToIdx(CanardPoolAllocator* allocator, const CanardRxState *rx)
+CANARD_INTERNAL canard_buffer_idx_t canardRxToIdx(CanardPoolAllocator* allocator, const CanardRxState *rx)
 {
 #if CANARD_64_BIT
     if (rx == NULL) {
@@ -587,7 +587,7 @@ int16_t canardHandleRxFrame(CanardInstance* ins, const CanardCANFrame* frame, ui
         else
         {
             // Like above, except that the beginning goes into the last block of the storage
-            CanardBufferBlock* block = CanardBufferFromIdx(&ins->allocator, rx_state->buffer_blocks);
+            CanardBufferBlock* block = canardBufferFromIdx(&ins->allocator, rx_state->buffer_blocks);
             if (block != NULL)
             {
                 size_t offset = CANARD_MULTIFRAME_RX_PAYLOAD_HEAD_SIZE;    // Payload offset of the first block
@@ -613,7 +613,7 @@ int16_t canardHandleRxFrame(CanardInstance* ins, const CanardCANFrame* frame, ui
         CanardRxTransfer rx_transfer = {
             .timestamp_usec = timestamp_usec,
             .payload_head = rx_state->buffer_head,
-            .payload_middle = CanardBufferFromIdx(&ins->allocator, rx_state->buffer_blocks),
+            .payload_middle = canardBufferFromIdx(&ins->allocator, rx_state->buffer_blocks),
             .payload_tail = (tail_offset >= frame_payload_size) ? NULL : (&frame->data[tail_offset]),
             .payload_len = (uint16_t)(rx_state->payload_len + frame_payload_size),
             .data_type_id = data_type_id,
@@ -668,7 +668,7 @@ void canardCleanupStaleTransfers(CanardInstance* ins, uint64_t current_time_usec
             if (state == ins->rx_states)
             {
                 releaseStatePayload(ins, state);
-                ins->rx_states = CanardRxFromIdx(&ins->allocator, ins->rx_states->next);
+                ins->rx_states = canardRxFromIdx(&ins->allocator, ins->rx_states->next);
                 freeBlock(&ins->allocator, state);
                 state = ins->rx_states;
                 prev = state;
@@ -678,13 +678,13 @@ void canardCleanupStaleTransfers(CanardInstance* ins, uint64_t current_time_usec
                 releaseStatePayload(ins, state);
                 prev->next = state->next;
                 freeBlock(&ins->allocator, state);
-                state = CanardRxFromIdx(&ins->allocator, prev->next);
+                state = canardRxFromIdx(&ins->allocator, prev->next);
             }
         }
         else
         {
             prev = state;
-            state = CanardRxFromIdx(&ins->allocator, state->next);
+            state = canardRxFromIdx(&ins->allocator, state->next);
         }
     }
 }
@@ -1400,7 +1400,7 @@ CANARD_INTERNAL CanardRxState* findRxState(CanardInstance *ins, uint32_t transfe
         {
             return state;
         }
-        state = CanardRxFromIdx(&ins->allocator, state->next);
+        state = canardRxFromIdx(&ins->allocator, state->next);
     }
     return NULL;
 }
@@ -1417,7 +1417,7 @@ CANARD_INTERNAL CanardRxState* prependRxState(CanardInstance* ins, uint32_t tran
         return NULL;
     }
 
-    state->next = CanardRxToIdx(&ins->allocator, ins->rx_states);
+    state->next = canardRxToIdx(&ins->allocator, ins->rx_states);
     ins->rx_states = state;
     return state;
 }
@@ -1444,10 +1444,10 @@ CANARD_INTERNAL uint64_t releaseStatePayload(CanardInstance* ins, CanardRxState*
 {
     while (rxstate->buffer_blocks != CANARD_BUFFER_IDX_NONE)
     {
-        CanardBufferBlock* block = CanardBufferFromIdx(&ins->allocator, rxstate->buffer_blocks);
+        CanardBufferBlock* block = canardBufferFromIdx(&ins->allocator, rxstate->buffer_blocks);
         CanardBufferBlock* const temp = block->next;
         freeBlock(&ins->allocator, block);
-        rxstate->buffer_blocks = CanardBufferToIdx(&ins->allocator, temp);
+        rxstate->buffer_blocks = canardBufferToIdx(&ins->allocator, temp);
     }
     rxstate->payload_len = 0;
     return CANARD_OK;
@@ -1494,7 +1494,7 @@ CANARD_INTERNAL int16_t bufferBlockPushBytes(CanardPoolAllocator* allocator,
     if (state->buffer_blocks == CANARD_BUFFER_IDX_NONE)
     {
         block = createBufferBlock(allocator);
-        state->buffer_blocks = CanardBufferToIdx(allocator, block);
+        state->buffer_blocks = canardBufferToIdx(allocator, block);
         if (block == NULL)
         {
             return -CANARD_ERROR_OUT_OF_MEMORY;
@@ -1507,7 +1507,7 @@ CANARD_INTERNAL int16_t bufferBlockPushBytes(CanardPoolAllocator* allocator,
         uint16_t nth_block = 1;
 
         // get to block
-        block = CanardBufferFromIdx(allocator, state->buffer_blocks);
+        block = canardBufferFromIdx(allocator, state->buffer_blocks);
         while (block->next != NULL)
         {
             nth_block++;
