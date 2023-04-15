@@ -1042,7 +1042,7 @@ CANARD_INTERNAL void incrementTransferID(uint8_t* transfer_id)
     }
 }
 
-CANARD_INTERNAL uint8_t dlcToDataLength(uint8_t dlc) {
+CANARD_INTERNAL uint16_t dlcToDataLength(uint16_t dlc) {
     /*
     Data Length Code      9  10  11  12  13  14  15
     Number of data bytes 12  16  20  24  32  48  64
@@ -1065,7 +1065,7 @@ CANARD_INTERNAL uint8_t dlcToDataLength(uint8_t dlc) {
     return 64;
 }
 
-CANARD_INTERNAL uint8_t dataLengthToDlc(uint8_t data_length) {
+CANARD_INTERNAL uint16_t dataLengthToDlc(uint16_t data_length) {
     if (data_length <= 8) {
         return data_length;
     } else if (data_length <= 12) {
@@ -1151,7 +1151,7 @@ CANARD_INTERNAL int16_t enqueueTxFrames(CanardInstance* ins,
                 return -CANARD_ERROR_OUT_OF_MEMORY;          // TODO: Purge all frames enqueued so far
             }
 
-            uint8_t i = 0;
+            uint16_t i = 0;
             if (data_index == 0)
             {
                 // add crc
