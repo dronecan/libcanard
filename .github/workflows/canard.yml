@@ -1,0 +1,47 @@
+name: CMake
+
+on: [push, pull_request, workflow_dispatch]
+
+# env:
+#   # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
+#   BUILD_TYPE: Release
+
+jobs:
+  build:
+    # The CMake configure and build commands are platform agnostic and should work equally well on Windows or Mac.
+    # You can convert this to a matrix build if you need cross-platform coverage.
+    # See: https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Install Dependencies
+      run: |
+        sudo apt install gcc-multilib g++-multilib lcov ccache
+        sudo pip install empy pydronecan
+    - name: Submodule update
+      run: |
+        git submodule update --init --recursive
+    - name: Clone required repositories into tests folder
+      run: |
+        cd ${{github.workspace}}/tests
+        git clone --depth 1 --branch v1.13.0 https://github.com/google/googletest
+    - name: Run Tests for canard_c library
+      working-directory: ${{github.workspace}}/tests
+      run: ./run_test.sh
+    - name: Clone required repositories into canard/tests folder
+      run: |
+            cd ${{github.workspace}}/canard/tests
+            git clone --depth 1 https://github.com/DroneCAN/DSDL
+            git clone --depth 1 https://github.com/dronecan/dronecan_dsdlc
+            git clone --depth 1 --branch v1.13.0 https://github.com/google/googletest
+    - name: Run Tests for canard_cxx library
+      working-directory: ${{github.workspace}}/canard/tests
+      run: ./run_test.sh
+    - name: combine coverage results
+      working-directory: ${{github.workspace}}/tests
+      run: lcov --add-tracefile coverage.info --add-tracefile ../canard/tests/coverage.info --output-file coverage.info
+    - name: show coverage results
+      working-directory: ${{github.workspace}}/tests
+      run: lcov --list coverage.info
