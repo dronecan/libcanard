@@ -150,6 +150,14 @@ CANARD_INTERNAL void freeBlock(CanardPoolAllocator* allocator,
 
 CANARD_INTERNAL uint16_t calculateCRC(const CanardTxTransfer* transfer_object);
 
+CANARD_INTERNAL CanardBufferBlock *canardBufferFromIdx(CanardPoolAllocator* allocator, canard_buffer_idx_t idx);
+
+CANARD_INTERNAL canard_buffer_idx_t canardBufferToIdx(CanardPoolAllocator* allocator, const CanardBufferBlock *buf);
+
+CANARD_INTERNAL CanardRxState *canardRxFromIdx(CanardPoolAllocator* allocator, canard_buffer_idx_t idx);
+
+CANARD_INTERNAL canard_buffer_idx_t canardRxToIdx(CanardPoolAllocator* allocator, const CanardRxState *rx);
+
 #ifdef __cplusplus
 }
 #endif
