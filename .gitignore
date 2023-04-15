@@ -33,6 +33,8 @@
 
 # CMake build directory
 build/
+tests/build
+tests/build32
 cmake-build-*/
 
 # IDE and tools
