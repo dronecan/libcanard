@@ -22,7 +22,7 @@
  * Contributors: https://github.com/UAVCAN/libcanard/contributors
  */
 
-#include <catch.hpp>
+#include <gtest/gtest.h>
 #include <canard.h>
 
 //Independent implementation of ID layout from https://uavcan.org/Specification/4._CAN_bus_transport_layer/
@@ -92,7 +92,7 @@ static bool shouldAcceptTransfer(const CanardInstance* ins,
     return g_should_accept;
 }
 
-TEST_CASE("canardHandleRxFrame incompatible packet handling, Correctness")
+TEST(canardHandleRxFrame, incompatiblePacketHandlingCorrectness)
 {
     uint8_t canard_memory_pool[1024];
     CanardInstance canard;
@@ -110,34 +110,35 @@ TEST_CASE("canardHandleRxFrame incompatible packet handling, Correctness")
     frame.id = 0;
     frame.data_len = 1;
     err = canardHandleRxFrame(&canard, &frame, 1);
-    REQUIRE(-CANARD_ERROR_RX_INCOMPATIBLE_PACKET == err);
+    ASSERT_TRUE(-CANARD_ERROR_RX_INCOMPATIBLE_PACKET == err);
 
     //Frame with good EFF/ERR/data_len, bad RTR
     frame.id = 0 | CANARD_CAN_FRAME_RTR | CANARD_CAN_FRAME_EFF;
     frame.data_len = 1;
     err = canardHandleRxFrame(&canard, &frame, 1);
-    REQUIRE(-CANARD_ERROR_RX_INCOMPATIBLE_PACKET == err);
+    ASSERT_TRUE(-CANARD_ERROR_RX_INCOMPATIBLE_PACKET == err);
 
     //Frame with good EFF/RTR/data_len, bad ERR
     frame.id = 0 | CANARD_CAN_FRAME_ERR | CANARD_CAN_FRAME_EFF;
     frame.data_len = 1;
     err = canardHandleRxFrame(&canard, &frame, 1);
-    REQUIRE(-CANARD_ERROR_RX_INCOMPATIBLE_PACKET == err);
+    ASSERT_TRUE(-CANARD_ERROR_RX_INCOMPATIBLE_PACKET == err);
 
     //Frame with good EFF/RTR/ERR, bad data_len
     frame.id = 0 | CANARD_CAN_FRAME_EFF;
     frame.data_len = 0;
     err = canardHandleRxFrame(&canard, &frame, 1);
-    REQUIRE(-CANARD_ERROR_RX_INCOMPATIBLE_PACKET == err);
+    ASSERT_TRUE(-CANARD_ERROR_RX_INCOMPATIBLE_PACKET == err);
 
     //Frame with good EFF/RTR/ERR/data_len
     frame.id = 0 | CANARD_CAN_FRAME_EFF;
     frame.data_len = 1;
     err = canardHandleRxFrame(&canard, &frame, 1);
-    REQUIRE(CANARD_OK == err);
+    ASSERT_TRUE(CANARD_OK == err);
 }
 
-TEST_CASE("canardHandleRxFrame wrong address handling, Correctness")
+//"canardHandleRxFrame wrong address handling, Correctness"
+TEST(canardHandleRxFrame, wrongAddressHandlingCorrectness)
 {
     uint8_t canard_memory_pool[1024];
     CanardInstance canard;
@@ -157,17 +158,18 @@ TEST_CASE("canardHandleRxFrame wrong address handling, Correctness")
     frame.id = CONSTRUCT_SVC_ID(0, 0, 1, 24, 0);
     frame.data_len = 1;
     err = canardHandleRxFrame(&canard, &frame, 1);
-    REQUIRE(-CANARD_ERROR_RX_WRONG_ADDRESS == err);
+    ASSERT_TRUE(-CANARD_ERROR_RX_WRONG_ADDRESS == err);
 
     //Send package with ID 20, should be OK
     frame.id = 0 | CANARD_CAN_FRAME_EFF;            //Set EFF
     frame.id = CONSTRUCT_SVC_ID(0, 0, 1, 20, 0);
     frame.data_len = 1;
     err = canardHandleRxFrame(&canard, &frame, 1);
-    REQUIRE(CANARD_OK == err);
+    ASSERT_TRUE(CANARD_OK == err);
 }
 
-TEST_CASE("canardHandleRxFrame shouldAccept handling, Correctness")
+// "canardHandleRxFrame shouldAccept handling, Correctness"
+TEST(canardHandleRxFrame, shouldAcceptHandlingCorrectness)
 {
     uint8_t canard_memory_pool[1024];
     CanardInstance canard;
@@ -187,17 +189,18 @@ TEST_CASE("canardHandleRxFrame shouldAccept handling, Correctness")
     frame.id = CONSTRUCT_SVC_ID(0, 0, 1, 20, 0);
     frame.data_len = 1;
     err = canardHandleRxFrame(&canard, &frame, 1);
-    REQUIRE(-CANARD_ERROR_RX_NOT_WANTED == err);
+    ASSERT_TRUE(-CANARD_ERROR_RX_NOT_WANTED == err);
 
     //Send packet, accept
     g_should_accept = true;
     frame.id = CONSTRUCT_SVC_ID(0, 0, 1, 20, 0);
     frame.data_len = 1;
     err = canardHandleRxFrame(&canard, &frame, 1);
-    REQUIRE(CANARD_OK == err);
+    ASSERT_TRUE(CANARD_OK == err);
 }
 
-TEST_CASE("canardHandleRxFrame no state handling, Correctness")
+// "canardHandleRxFrame no state handling, Correctness"
+TEST(canardHandleRxFrame, noStateHandlingCorrectness)
 {
     uint8_t canard_memory_pool[1024];
     CanardInstance canard;
@@ -216,21 +219,21 @@ TEST_CASE("canardHandleRxFrame no state handling, Correctness")
     frame.id = CONSTRUCT_SVC_ID(0, 0, 1, 20, 0);
     frame.data_len = 1;
     err = canardHandleRxFrame(&canard, &frame, 1);
-    REQUIRE(-CANARD_ERROR_RX_MISSED_START == err);
+    ASSERT_TRUE(-CANARD_ERROR_RX_MISSED_START == err);
 
     //End of packet, should fail
     frame.data[0] = CONSTRUCT_TAIL_BYTE(0, 1, 0, 0);
     frame.id = CONSTRUCT_SVC_ID(0, 0, 1, 20, 0);
     frame.data_len = 1;
     err = canardHandleRxFrame(&canard, &frame, 1);
-    REQUIRE(-CANARD_ERROR_RX_MISSED_START == err);
+    ASSERT_TRUE(-CANARD_ERROR_RX_MISSED_START == err);
 
     //1 Frame packet, should pass
     frame.data[0] = CONSTRUCT_TAIL_BYTE(1, 1, 0, 0);
     frame.id = CONSTRUCT_SVC_ID(0, 0, 1, 20, 0);
     frame.data_len = 1;
     err = canardHandleRxFrame(&canard, &frame, 1);
-    REQUIRE(CANARD_OK == err);
+    ASSERT_TRUE(CANARD_OK == err);
 
     //Send a start packet, should pass
     frame.data[7] = CONSTRUCT_TAIL_BYTE(1, 0, 0, 1);
@@ -238,32 +241,33 @@ TEST_CASE("canardHandleRxFrame no state handling, Correctness")
     frame.id = CONSTRUCT_SVC_ID(0, 0, 1, 20, 0);
     frame.data_len = 8;                             //Data length MUST be full packet
     err = canardHandleRxFrame(&canard, &frame, 1);
-    REQUIRE(CANARD_OK == err);
+    ASSERT_TRUE(CANARD_OK == err);
 
     //Send a middle packet, from the same ID, but don't toggle
     frame.data[0] = CONSTRUCT_TAIL_BYTE(0, 0, 0, 1);
     frame.id = CONSTRUCT_SVC_ID(0, 0, 1, 20, 0);
     frame.data_len = 1;
     err = canardHandleRxFrame(&canard, &frame, 1);
-    REQUIRE(-CANARD_ERROR_RX_WRONG_TOGGLE == err);
+    ASSERT_TRUE(-CANARD_ERROR_RX_WRONG_TOGGLE == err);
 
     //Send a middle packet, toggle, but use wrong ID
     frame.data[7] = CONSTRUCT_TAIL_BYTE(0, 0, 1, 2);
     frame.id = CONSTRUCT_SVC_ID(0, 0, 1, 20, 0);
     frame.data_len = 8;
     err = canardHandleRxFrame(&canard, &frame, 1);
-    REQUIRE(-CANARD_ERROR_RX_UNEXPECTED_TID == err);
+    ASSERT_TRUE(-CANARD_ERROR_RX_UNEXPECTED_TID == err);
 
     //Send a middle packet, toggle, and use correct ID
     frame.data[7] = CONSTRUCT_TAIL_BYTE(0, 0, 1, 1);
     frame.id = CONSTRUCT_SVC_ID(0, 0, 1, 20, 0);
     frame.data_len = 8;
     err = canardHandleRxFrame(&canard, &frame, 1);
-    REQUIRE(CANARD_OK == err);
+    ASSERT_TRUE(CANARD_OK == err);
 
 }
 
-TEST_CASE("canardHandleRxFrame missed start handling, Correctness")
+// TEST("canardHandleRxFrame missed start handling, Correctness")
+TEST(canardHandleRxFrame, missedStartHandlingCorrectness)
 {
     uint8_t canard_memory_pool[1024];
     CanardInstance canard;
@@ -283,46 +287,48 @@ TEST_CASE("canardHandleRxFrame missed start handling, Correctness")
     frame.id = CONSTRUCT_SVC_ID(0, 0, 1, 20, 0);
     frame.data_len = 8;                             //Data length MUST be full packet
     err = canardHandleRxFrame(&canard, &frame, 1);
-    REQUIRE(CANARD_OK == err);
+    ASSERT_TRUE(CANARD_OK == err);
 
     //Send a middle packet, toggle, and use correct ID - but timeout
-    frame.data[7] = CONSTRUCT_TAIL_BYTE(0, 0, 1, 1);
+    uint8_t tid = 1;
+    frame.data[7] = CONSTRUCT_TAIL_BYTE(0, 0, 1, tid++);
     frame.id = CONSTRUCT_SVC_ID(0, 0, 1, 20, 0);
     frame.data_len = 8;
     err = canardHandleRxFrame(&canard, &frame, 4000000);
-    REQUIRE(-CANARD_ERROR_RX_MISSED_START == err);
+    ASSERT_TRUE(-CANARD_ERROR_RX_MISSED_START == err);
 
     //Send a start packet, should pass
-    frame.data[7] = CONSTRUCT_TAIL_BYTE(1, 0, 0, 1);
+    frame.data[7] = CONSTRUCT_TAIL_BYTE(1, 0, 0, tid++);
     frame.id = CONSTRUCT_SVC_ID(0, 0, 1, 20, 0);
     frame.data_len = 8;                             //Data length MUST be full packet
     err = canardHandleRxFrame(&canard, &frame, 1);
-    REQUIRE(CANARD_OK == err);
+    ASSERT_TRUE(CANARD_OK == err);
 
     //Send a middle packet, toggle, and use correct ID - but timestamp 0
-    frame.data[7] = CONSTRUCT_TAIL_BYTE(0, 0, 1, 1);
+    frame.data[7] = CONSTRUCT_TAIL_BYTE(0, 0, 1, tid++);
     frame.id = CONSTRUCT_SVC_ID(0, 0, 1, 20, 0);
     frame.data_len = 8;
     err = canardHandleRxFrame(&canard, &frame, 0);
-    REQUIRE(-CANARD_ERROR_RX_MISSED_START == err);
+    ASSERT_TRUE(-CANARD_ERROR_RX_MISSED_START == err);
 
     //Send a start packet, should pass
-    frame.data[7] = CONSTRUCT_TAIL_BYTE(1, 0, 0, 1);
+    frame.data[7] = CONSTRUCT_TAIL_BYTE(1, 0, 0, tid++);
     frame.id = CONSTRUCT_SVC_ID(0, 0, 1, 20, 0);
     frame.data_len = 8;                             //Data length MUST be full packet
     err = canardHandleRxFrame(&canard, &frame, 1);
-    REQUIRE(CANARD_OK == err);
+    ASSERT_TRUE(CANARD_OK == err);
 
     //Send a middle packet, toggle, and use an incorrect TID
-    frame.data[7] = CONSTRUCT_TAIL_BYTE(0, 0, 1, 3);
+    frame.data[7] = CONSTRUCT_TAIL_BYTE(0, 0, 1, tid--);
     frame.data[7] = 0 | 3 | (1<<5);
     frame.id = CONSTRUCT_SVC_ID(0, 0, 1, 20, 0);
     frame.data_len = 8;
     err = canardHandleRxFrame(&canard, &frame, 0);
-    REQUIRE(-CANARD_ERROR_RX_MISSED_START == err);
+    ASSERT_TRUE(-CANARD_ERROR_RX_MISSED_START == err);
 }
 
-TEST_CASE("canardHandleRxFrame short frame handling, Correctness")
+// TEST("canardHandleRxFrame short frame handling, Correctness")
+TEST(canardHandleRxFrame, shortFrameHandlingCorrectness)
 {
     uint8_t canard_memory_pool[1024];
     CanardInstance canard;
@@ -341,17 +347,18 @@ TEST_CASE("canardHandleRxFrame short frame handling, Correctness")
     frame.id = CONSTRUCT_SVC_ID(0, 0, 1, 20, 0);
     frame.data_len = 2;                             //Data length MUST be full packet
     err = canardHandleRxFrame(&canard, &frame, 1);
-    REQUIRE(-CANARD_ERROR_RX_SHORT_FRAME == err);
+    ASSERT_TRUE(-CANARD_ERROR_RX_SHORT_FRAME == err);
 
     //Send a start packet which is short, should fail
     frame.data[2] = CONSTRUCT_TAIL_BYTE(1, 0, 0, 1);
     frame.id = CONSTRUCT_SVC_ID(0, 0, 1, 20, 0);
     frame.data_len = 3;                             //Data length MUST be full packet
     err = canardHandleRxFrame(&canard, &frame, 1);
-    REQUIRE(-CANARD_ERROR_RX_SHORT_FRAME == err);
+    ASSERT_TRUE(-CANARD_ERROR_RX_SHORT_FRAME == err);
 }
 
-TEST_CASE("canardHandleRxFrame OOM handling, Correctness")
+// TEST("canardHandleRxFrame OOM handling, Correctness")
+TEST(canardHandleRxFrame, oomHandlingCorrectness)
 {
     uint8_t dummy_buf;
     CanardInstance canard;
@@ -370,10 +377,11 @@ TEST_CASE("canardHandleRxFrame OOM handling, Correctness")
     frame.id = CONSTRUCT_SVC_ID(0, 0, 1, 20, 0);
     frame.data_len = 8;                             //Data length MUST be full packet
     err = canardHandleRxFrame(&canard, &frame, 1);
-    REQUIRE(-CANARD_ERROR_OUT_OF_MEMORY == err);
+    ASSERT_TRUE(-CANARD_ERROR_OUT_OF_MEMORY == err);
 }
 
-TEST_CASE("canardHandleRxFrame unusual single frame, Correctness")
+// TEST("canardHandleRxFrame unusual single frame, Correctness")
+TEST(canardHandleRxFrame, unusualSingleFrameCorrectness)
 {
     uint8_t canard_memory_pool[1024];
     CanardInstance canard;
@@ -391,18 +399,18 @@ TEST_CASE("canardHandleRxFrame unusual single frame, Correctness")
     frame.id = CONSTRUCT_SVC_ID(0, 0, 1, 20, 0);
     frame.data_len = 8;                             //Data length MUST be full packet
     err = canardHandleRxFrame(&canard, &frame, 1);
-    REQUIRE(CANARD_OK == err);
+    ASSERT_TRUE(CANARD_OK == err);
 
 
     frame.data[7] = CONSTRUCT_TAIL_BYTE(0, 0, 1, 1);
     frame.id = CONSTRUCT_SVC_ID(0, 0, 1, 20, 0);
     frame.data_len = 8;                             //Data length MUST be full packet
     err = canardHandleRxFrame(&canard, &frame, 1);
-    REQUIRE(CANARD_OK == err);
+    ASSERT_TRUE(CANARD_OK == err);
 
     frame.data[1] = CONSTRUCT_TAIL_BYTE(1, 1, 1, 1);
     frame.id = CONSTRUCT_SVC_ID(0, 0, 1, 20, 0);
     frame.data_len = 2;                             //Data length MUST be full packet
     err = canardHandleRxFrame(&canard, &frame, 1);
-    REQUIRE(CANARD_OK == err);
+    ASSERT_TRUE(CANARD_OK == err);
 }

@@ -22,7 +22,7 @@
  * Contributors: https://github.com/UAVCAN/libcanard/contributors
  */
 
-#include <catch.hpp>
+#include <gtest/gtest.h>
 #include "canard_internals.h"
 
 /*
@@ -39,7 +39,7 @@
  * '29B1'
  */
 
-TEST_CASE("CRC, Correctness")
+TEST(CRC, CRC)
 {
     uint16_t crc = 0xFFFFU;
 
@@ -47,9 +47,9 @@ TEST_CASE("CRC, Correctness")
     crc = crcAdd(crc, reinterpret_cast<const uint8_t*>("2"), 1);
     crc = crcAdd(crc, reinterpret_cast<const uint8_t*>("3"), 1);
 
-    REQUIRE(0x5BCE == crc);                                     // Using Libuavcan as reference
+    ASSERT_TRUE(0x5BCE == crc);                                     // Using Libuavcan as reference
 
     crc = crcAdd(crc, reinterpret_cast<const uint8_t*>("456789"), 6);
 
-    REQUIRE(0x29B1 == crc);
+    ASSERT_TRUE(0x29B1 == crc);
 }
