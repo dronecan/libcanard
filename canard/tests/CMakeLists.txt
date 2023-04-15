@@ -10,6 +10,10 @@ execute_process(COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/dronecan_dsdlc/drone
     DSDL/com
     )
 
+if (CANARD_ENABLE_CANFD)
+    add_definitions(-DCANARD_ENABLE_CANFD=1)
+endif()
+
 # generate dsdl messages
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/dsdlc_generated/include)
 

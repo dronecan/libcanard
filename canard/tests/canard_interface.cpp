@@ -1,4 +1,5 @@
 #include "canard_interface.h"
+#include <iostream>
 
 using namespace Canard;
 
@@ -68,7 +69,11 @@ bool CanardInterface::respond(uint8_t destination_node_id, const Transfer &res_t
 }
 
 void CanardInterface::handle_frame(const CanardCANFrame &frame, uint64_t timestamp_usec) {
-    canardHandleRxFrame(&canard, &frame, timestamp_usec);
+    int16_t err = canardHandleRxFrame(&canard, &frame, timestamp_usec);
+    if (err < 0) {
+        std::cout << "Error handling frame: " << err << std::endl;
+        CANARD_ASSERT(false);
+    }
 }
 
 void CanardInterface::onTransferReception(CanardInstance* ins, CanardRxTransfer* transfer) {
