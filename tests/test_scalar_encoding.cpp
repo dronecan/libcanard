@@ -177,7 +177,7 @@ TEST(ScalarDecode, MultiFrame)
     } else if (CANARD_MULTIFRAME_RX_PAYLOAD_HEAD_SIZE == 5) {
         // 64 from beginning, 40 bits from head, 24 bits from the middle
         ASSERT_TRUE(0b0101101001011010010110101010010110100101101001011010010110100101ULL == read<uint64_t>(&transfer, 0, 64));
-    } else if (CANARD_MULTIFRAME_RX_PAYLOAD_HEAD_SIZE == 21) {
+    } else if (CANARD_MULTIFRAME_RX_PAYLOAD_HEAD_SIZE >= 8) {
         // This happens when CANARD_MEM_BLOCK_SIZE is 48 instead of 32
         // 64 from beginning, all 64 bits from head
         ASSERT_TRUE(0b1010010110100101101001011010010110100101101001011010010110100101ULL == read<uint64_t>(&transfer, 0, 64));
