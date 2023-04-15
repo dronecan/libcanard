@@ -8,39 +8,63 @@ void CanardInterface::init(void* mem_arena, size_t mem_arena_size) {
 
 bool CanardInterface::broadcast(const Transfer &bcast_transfer) {
     // do canard broadcast
-    return canardBroadcast(&canard,
-                            bcast_transfer.data_type_signature,
-                            bcast_transfer.data_type_id,
-                            bcast_transfer.inout_transfer_id,
-                            bcast_transfer.priority,
-                            bcast_transfer.payload,
-                            bcast_transfer.payload_len) > 0;
+    CanardTxTransfer tx_transfer = {
+        .transfer_type = bcast_transfer.transfer_type,
+        .data_type_signature = bcast_transfer.data_type_signature,
+        .data_type_id = bcast_transfer.data_type_id,
+        .inout_transfer_id = bcast_transfer.inout_transfer_id,
+        .priority = bcast_transfer.priority,
+        .payload = (const uint8_t*)bcast_transfer.payload,
+        .payload_len = bcast_transfer.payload_len,
+#if CANARD_ENABLE_CANFD
+        .canfd = bcast_transfer.canfd,
+#endif
+#if CANARD_MULTI_IFACE
+        .iface_mask = uint8_t((1<<num_ifaces) - 1),
+#endif
+    };
+
+    return canardBroadcastObj(&canard, &tx_transfer) > 0;
 }
 
 bool CanardInterface::request(uint8_t destination_node_id, const Transfer &req_transfer) {
     // do canard request
-    return canardRequestOrRespond(&canard,
-                                    destination_node_id,
-                                    req_transfer.data_type_signature,
-                                    req_transfer.data_type_id,
-                                    req_transfer.inout_transfer_id,
-                                    req_transfer.priority,
-                                    CanardRequest,
-                                    req_transfer.payload,
-                                    req_transfer.payload_len) > 0;
+    CanardTxTransfer tx_transfer = {
+        .transfer_type = req_transfer.transfer_type,
+        .data_type_signature = req_transfer.data_type_signature,
+        .data_type_id = req_transfer.data_type_id,
+        .inout_transfer_id = req_transfer.inout_transfer_id,
+        .priority = req_transfer.priority,
+        .payload = (const uint8_t*)req_transfer.payload,
+        .payload_len = req_transfer.payload_len,
+#if CANARD_ENABLE_CANFD
+        .canfd = req_transfer.canfd,
+#endif
+#if CANARD_MULTI_IFACE
+        .iface_mask = uint8_t((1<<num_ifaces) - 1),
+#endif
+    };
+    return canardRequestOrRespondObj(&canard, destination_node_id, &tx_transfer) > 0;
 }
 
 bool CanardInterface::respond(uint8_t destination_node_id, const Transfer &res_transfer) {
     // do canard respond
-    return canardRequestOrRespond(&canard,
-                                    destination_node_id,
-                                    res_transfer.data_type_signature,
-                                    res_transfer.data_type_id,
-                                    res_transfer.inout_transfer_id,
-                                    res_transfer.priority,
-                                    CanardResponse,
-                                    res_transfer.payload,
-                                    res_transfer.payload_len) > 0;
+    CanardTxTransfer tx_transfer = {
+        .transfer_type = res_transfer.transfer_type,
+        .data_type_signature = res_transfer.data_type_signature,
+        .data_type_id = res_transfer.data_type_id,
+        .inout_transfer_id = res_transfer.inout_transfer_id,
+        .priority = res_transfer.priority,
+        .payload = (const uint8_t*)res_transfer.payload,
+        .payload_len = res_transfer.payload_len,
+#if CANARD_ENABLE_CANFD
+        .canfd = res_transfer.canfd,
+#endif
+#if CANARD_MULTI_IFACE
+        .iface_mask = uint8_t((1<<num_ifaces) - 1),
+#endif
+    };
+    return canardRequestOrRespondObj(&canard, destination_node_id, &tx_transfer) > 0;
 }
 
 void CanardInterface::handle_frame(const CanardCANFrame &frame, uint64_t timestamp_usec) {
