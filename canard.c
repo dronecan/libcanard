@@ -298,8 +298,8 @@ CANARD_INTERNAL uint16_t calculateCRC(const CanardTxTransfer* transfer_object)
 #if CANARD_ENABLE_CANFD
         if (transfer_object->payload_len > 63 && transfer_object->canfd) {
             uint8_t empty = 0;
-            uint8_t padding = dlcToDataLength(dataLengthToDlc(((transfer_object->payload_len+2) % 63)+1))-1;
-            padding-=((transfer_object->payload_len+2) % 63);
+            uint8_t padding = (uint8_t)dlcToDataLength(dataLengthToDlc((uint16_t)((transfer_object->payload_len+2) % 63)+1))-1;
+            padding -= (uint8_t)((transfer_object->payload_len+2) % 63);
             for (uint8_t i=0; i<padding; i++) {
                 crc = crcAddByte(crc, empty);
             }
@@ -1589,7 +1589,7 @@ void copyBitArray(const uint8_t* src, uint32_t src_offset, uint32_t src_len,
         const uint8_t dst_bit_offset = (uint8_t)(dst_offset % 8U);
 
         const uint8_t max_offset = MAX(src_bit_offset, dst_bit_offset);
-        const uint32_t copy_bits = MIN(last_bit - src_offset, 8U - max_offset);
+        const uint32_t copy_bits = (uint32_t)MIN(last_bit - src_offset, 8U - max_offset);
 
         const uint8_t write_mask = (uint8_t)((uint8_t)(0xFF00U >> copy_bits) >> dst_bit_offset);
         const uint8_t src_data = (uint8_t)(((uint32_t)src[src_offset / 8U] << src_bit_offset) >> dst_bit_offset);
@@ -1646,7 +1646,7 @@ CANARD_INTERNAL int16_t descatterTransferPayload(const CanardRxTransfer* transfe
         }
 
         // Reading middle
-        uint32_t remaining_bits = transfer->payload_len * 8U - CANARD_MULTIFRAME_RX_PAYLOAD_HEAD_SIZE * 8U;
+        uint32_t remaining_bits = (uint32_t)(transfer->payload_len * 8U - CANARD_MULTIFRAME_RX_PAYLOAD_HEAD_SIZE * 8U);
         uint32_t block_bit_offset = CANARD_MULTIFRAME_RX_PAYLOAD_HEAD_SIZE * 8U;
         const CanardBufferBlock* block = transfer->payload_middle;
 
