@@ -11,6 +11,11 @@ void TestNetwork::route_msg(CoreTestInterface *send_iface, uint8_t source_node_i
     rx_transfer.transfer_id = *transfer.inout_transfer_id;
     rx_transfer.source_node_id = source_node_id;
     rx_transfer.transfer_type = transfer.transfer_type;
+#if CANARD_ENABLE_CANFD
+    rx_transfer.tao = !transfer.canfd;
+#elif CANARD_ENABLE_TAO_OPTION
+    rx_transfer.tao = true;
+#endif
     // send to all interfaces
     for (auto iface : ifaces) {
         if (iface != send_iface && iface != nullptr) {
