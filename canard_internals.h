@@ -85,26 +85,14 @@ CANARD_INTERNAL void incrementTransferID(uint8_t* transfer_id);
 CANARD_INTERNAL uint64_t releaseStatePayload(CanardInstance* ins,
                                              CanardRxState* rxstate);
 
-CANARD_INTERNAL uint8_t dlcToDataLength(uint8_t dlc);
-CANARD_INTERNAL uint8_t dataLengthToDlc(uint8_t data_length);
+CANARD_INTERNAL uint16_t dlcToDataLength(uint16_t dlc);
+CANARD_INTERNAL uint16_t dataLengthToDlc(uint16_t data_length);
 
 /// Returns the number of frames enqueued
 CANARD_INTERNAL int16_t enqueueTxFrames(CanardInstance* ins,
                                         uint32_t can_id,
-                                        uint8_t* transfer_id,
                                         uint16_t crc,
-                                        const uint8_t* payload,
-                                        uint16_t payload_len
-#if CANARD_ENABLE_DEADLINE
-                                        ,uint64_t tx_deadline
-#endif
-#if CANARD_MULTI_IFACE
-                                        ,uint8_t iface_mask
-#endif
-#if CANARD_ENABLE_CANFD
-                                        ,bool canfd
-#endif
-                                        );
+                                        CanardTxTransfer* transfer);
 
 CANARD_INTERNAL void copyBitArray(const uint8_t* src,
                                   uint32_t src_offset,
@@ -160,13 +148,44 @@ CANARD_INTERNAL void* allocateBlock(CanardPoolAllocator* allocator);
 CANARD_INTERNAL void freeBlock(CanardPoolAllocator* allocator,
                                void* p);
 
-CANARD_INTERNAL uint16_t calculateCRC(const void* payload, 
-                                      uint16_t payload_len, 
-                                      uint64_t data_type_signature
-#if CANARD_ENABLE_CANFD
-                                      ,bool canfd
+CANARD_INTERNAL uint16_t calculateCRC(const CanardTxTransfer* transfer_object);
+
+CANARD_INTERNAL CanardBufferBlock *canardBufferFromIdx(CanardPoolAllocator* allocator, canard_buffer_idx_t idx);
+
+CANARD_INTERNAL canard_buffer_idx_t canardBufferToIdx(CanardPoolAllocator* allocator, const CanardBufferBlock *buf);
+
+CANARD_INTERNAL CanardRxState *canardRxFromIdx(CanardPoolAllocator* allocator, canard_buffer_idx_t idx);
+
+CANARD_INTERNAL canard_buffer_idx_t canardRxToIdx(CanardPoolAllocator* allocator, const CanardRxState *rx);
+
+
+/*
+ * This function can be used to prepare a CAN frame for transmission.
+ * The function will allocate a buffer for the payload and copy the payload into it.
+ *
+ * Return value will report 0 on success, or a negative error code.
+*/
+#if CANARD_MAX_MTU > 8
+CANARD_INTERNAL int16_t canardBufferedCANFramePushBytes(CanardPoolAllocator* allocator,
+                                                        CanardTxQueueItem *queue_item,
+                                                        const uint8_t* data,
+                                                        uint16_t data_len);
+
+/*
+ * Convert a Queue CAN Frame to CANFrame struct
+*/
+CANARD_INTERNAL void canardBufferedCANFrameToCANFrame(CanardPoolAllocator* allocator,
+                                                      CanardCANFrame *in_out_frame,
+                                                      CanardTxQueueItem *queue_item);
+
+/*
+* This function can be used to release a CAN frame buffer.
+* The function will release the buffer allocated by canardBufferedCANFramePushBytes().
+* This is automatically called when Tx Item is popped.
+*/
+CANARD_INTERNAL void canardReleaseCANFrameBuffer(CanardPoolAllocator* allocator,
+                                                 CanardTxQueueItem *queue_item);
 #endif
-);
 
 #ifdef __cplusplus
 }

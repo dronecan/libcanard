@@ -22,32 +22,32 @@
  * Contributors: https://github.com/UAVCAN/libcanard/contributors
  */
 
-#include <catch.hpp>
+#include <gtest/gtest.h>
 #include "canard_internals.h"
 
 
 #define AVAILABLE_BLOCKS 3
 
 
-TEST_CASE("MemoryAllocatorTestGroup, FreeListIsConstructedCorrectly")
+TEST(MemoryAllocatorTestGroup, FreeListIsConstructedCorrectly)
 {
     CanardPoolAllocator allocator;
     CanardPoolAllocatorBlock buffer[AVAILABLE_BLOCKS];
     initPoolAllocator(&allocator, buffer, AVAILABLE_BLOCKS);
 
     // Check that the memory list is constructed correctly.
-    REQUIRE(&buffer[0] == allocator.free_list);
-    REQUIRE(&buffer[1] == allocator.free_list->next);
-    REQUIRE(&buffer[2] == allocator.free_list->next->next);
-    REQUIRE(NULL == allocator.free_list->next->next->next);
+    ASSERT_TRUE(&buffer[0] == allocator.free_list);
+    ASSERT_TRUE(&buffer[1] == allocator.free_list->next);
+    ASSERT_TRUE(&buffer[2] == allocator.free_list->next->next);
+    ASSERT_TRUE(NULL == allocator.free_list->next->next->next);
 
     // Check statistics
-    REQUIRE(AVAILABLE_BLOCKS == allocator.statistics.capacity_blocks);
-    REQUIRE(0 ==                allocator.statistics.current_usage_blocks);
-    REQUIRE(0 ==                allocator.statistics.peak_usage_blocks);
+    ASSERT_TRUE(AVAILABLE_BLOCKS == allocator.statistics.capacity_blocks);
+    ASSERT_TRUE(0 ==                allocator.statistics.current_usage_blocks);
+    ASSERT_TRUE(0 ==                allocator.statistics.peak_usage_blocks);
 }
 
-TEST_CASE("MemoryAllocatorTestGroup, CanAllocateBlock")
+TEST(MemoryAllocatorTestGroup, CanAllocateBlock)
 {
     CanardPoolAllocator allocator;
     CanardPoolAllocatorBlock buffer[AVAILABLE_BLOCKS];
@@ -56,16 +56,16 @@ TEST_CASE("MemoryAllocatorTestGroup, CanAllocateBlock")
     void* block = allocateBlock(&allocator);
 
     // Check that the first free memory block was used and that the next block is ready.
-    REQUIRE(&buffer[0] == block);
-    REQUIRE(&buffer[1] == allocator.free_list);
+    ASSERT_TRUE(&buffer[0] == block);
+    ASSERT_TRUE(&buffer[1] == allocator.free_list);
 
     // Check statistics
-    REQUIRE(AVAILABLE_BLOCKS == allocator.statistics.capacity_blocks);
-    REQUIRE(1 ==                allocator.statistics.current_usage_blocks);
-    REQUIRE(1 ==                allocator.statistics.peak_usage_blocks);
+    ASSERT_TRUE(AVAILABLE_BLOCKS == allocator.statistics.capacity_blocks);
+    ASSERT_TRUE(1 ==                allocator.statistics.current_usage_blocks);
+    ASSERT_TRUE(1 ==                allocator.statistics.peak_usage_blocks);
 }
 
-TEST_CASE("MemoryAllocatorTestGroup, ReturnsNullIfThereIsNoBlockLeft")
+TEST(MemoryAllocatorTestGroup, ReturnsNullIfThereIsNoBlockLeft)
 {
     CanardPoolAllocator allocator;
     CanardPoolAllocatorBlock buffer[AVAILABLE_BLOCKS];
@@ -79,15 +79,15 @@ TEST_CASE("MemoryAllocatorTestGroup, ReturnsNullIfThereIsNoBlockLeft")
 
     // Try to allocate one extra block
     void* block = allocateBlock(&allocator);
-    REQUIRE(NULL == block);
+    ASSERT_TRUE(NULL == block);
 
     // Check statistics
-    REQUIRE(AVAILABLE_BLOCKS == allocator.statistics.capacity_blocks);
-    REQUIRE(AVAILABLE_BLOCKS == allocator.statistics.current_usage_blocks);
-    REQUIRE(AVAILABLE_BLOCKS == allocator.statistics.peak_usage_blocks);
+    ASSERT_TRUE(AVAILABLE_BLOCKS == allocator.statistics.capacity_blocks);
+    ASSERT_TRUE(AVAILABLE_BLOCKS == allocator.statistics.current_usage_blocks);
+    ASSERT_TRUE(AVAILABLE_BLOCKS == allocator.statistics.peak_usage_blocks);
 }
 
-TEST_CASE("MemoryAllocatorTestGroup, CanFreeBlock")
+TEST(MemoryAllocatorTestGroup, CanFreeBlock)
 {
     CanardPoolAllocator allocator;
     CanardPoolAllocatorBlock buffer[AVAILABLE_BLOCKS];
@@ -98,11 +98,11 @@ TEST_CASE("MemoryAllocatorTestGroup, CanFreeBlock")
     freeBlock(&allocator, block);
 
     // Check that the block was added back to the beginning
-    REQUIRE(&buffer[0] == allocator.free_list);
-    REQUIRE(&buffer[1] == allocator.free_list->next);
+    ASSERT_TRUE(&buffer[0] == allocator.free_list);
+    ASSERT_TRUE(&buffer[1] == allocator.free_list->next);
 
     // Check statistics
-    REQUIRE(AVAILABLE_BLOCKS == allocator.statistics.capacity_blocks);
-    REQUIRE(0 ==                allocator.statistics.current_usage_blocks);
-    REQUIRE(1 ==                allocator.statistics.peak_usage_blocks);
+    ASSERT_TRUE(AVAILABLE_BLOCKS == allocator.statistics.capacity_blocks);
+    ASSERT_TRUE(0 ==                allocator.statistics.current_usage_blocks);
+    ASSERT_TRUE(1 ==                allocator.statistics.peak_usage_blocks);
 }

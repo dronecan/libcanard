@@ -2,61 +2,95 @@
 # Copyright (c) 2016-2017 UAVCAN Team
 #
 
-cmake_minimum_required(VERSION 3.1)
+cmake_minimum_required (VERSION 3.5)
 project(libcanard)
-
-# Catch library for unit testing
-include_directories(catch)
 
 # Libcanard
 include_directories(..)
-include_directories(../drivers/socketcan)
+# include_directories(../drivers/socketcan)
 
 # Compiler configuration - supporting only Clang and GCC
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Wextra -Werror -m32")
-set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   -std=c99   -Wall -Wextra -Werror -m32 -pedantic")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -Wall -Wextra -Werror")
+set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   -std=c99   -Wall -Wextra -Werror -pedantic")
+# turn on debug symbols by default
+if (NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Debug)
+endif()
+
+if (CANARD_ENABLE_CANFD)
+    add_definitions(-DCANARD_ENABLE_CANFD=1)
+endif()
+
+if (CANARD_ENABLE_DEADLINE)
+    add_definitions(-DCANARD_ENABLE_DEADLINE=1)
+endif()
+
+if (CANARD_MULTI_IFACE)
+    add_definitions(-DCANARD_MULTI_IFACE=1)
+endif()
+
+# check arguments for 32-bit build
+if (CMAKE_32BIT)
+     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -m32")
+     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -m32")
+endif()
 
 # C warnings
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wdouble-promotion -Wswitch-enum -Wfloat-equal -Wundef")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wconversion -Wtype-limits")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wsign-conversion -Wcast-align -Wmissing-declarations")
+set(CANARD_C_FLAGS "${CANARD_C_FLAGS} -Wdouble-promotion -Wswitch-enum -Wfloat-equal -Wundef")
+set(CANARD_C_FLAGS "${CANARD_C_FLAGS} -Wconversion -Wtype-limits")
+set(CANARD_C_FLAGS "${CANARD_C_FLAGS} -Wsign-conversion -Wcast-align -Wmissing-declarations")
 
 # C++ warnings
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wdouble-promotion -Wswitch-enum -Wfloat-equal -Wundef")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wconversion -Wsign-promo")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wsign-conversion -Wcast-align -Wmissing-declarations")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wtype-limits -Wzero-as-null-pointer-constant -Wnon-virtual-dtor")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Woverloaded-virtual -Wsign-promo -Wold-style-cast")
+set(CANARD_CXX_FLAGS "${CANARD_CXX_FLAGS} -Wdouble-promotion -Wswitch-enum -Wfloat-equal -Wundef")
+set(CANARD_CXX_FLAGS "${CANARD_CXX_FLAGS} -Wconversion -Wsign-promo")
+set(CANARD_CXX_FLAGS "${CANARD_CXX_FLAGS} -Wsign-conversion -Wcast-align -Wmissing-declarations")
+set(CANARD_CXX_FLAGS "${CANARD_CXX_FLAGS} -Wtype-limits -Wzero-as-null-pointer-constant -Wnon-virtual-dtor")
+set(CANARD_CXX_FLAGS "${CANARD_CXX_FLAGS} -Woverloaded-virtual -Wsign-promo -Wold-style-cast")
 # We allow the following warnings for compatibility with the C codebase:
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-error=old-style-cast -Wno-error=zero-as-null-pointer-constant")
+set(CANARD_CXX_FLAGS "${CANARD_CXX_FLAGS} -Wno-error=old-style-cast -Wno-error=zero-as-null-pointer-constant")
+# add coverage flags
+if (CANARD_ENABLE_COVERAGE)
+    set(CANARD_CXX_FLAGS "${CANARD_CXX_FLAGS} -fprofile-arcs -ftest-coverage")
+    set(CANARD_C_FLAGS "${CANARD_C_FLAGS} -fprofile-arcs -ftest-coverage")
+    set(CANARD_LINK_FLAGS "${CANARD_LINK_FLAGS} -fprofile-arcs -ftest-coverage")
+endif()
 
 # Expose internal API for unit testing
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DCANARD_INTERNAL=''")
-set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   -DCANARD_INTERNAL=''")
+set(CANARD_CXX_FLAGS "${CANARD_CXX_FLAGS} -DCANARD_INTERNAL=''")
+set(CANARD_C_FLAGS   "${CANARD_C_FLAGS}   -DCANARD_INTERNAL=''")
+
+add_subdirectory(googletest)
+
+enable_testing()
+
+include_directories(googletest/googletest/include)
 
 # Unit tests
 file(GLOB tests_src
      RELATIVE "${CMAKE_SOURCE_DIR}"
-     "*.cpp"
-     "catch/*.cpp"
-     "stm32/*.cpp")
+     "*.cpp")
+
 message(STATUS "Unit test source files: ${tests_src}")
-add_executable(run_tests
-               ${tests_src}
-               ../canard.c)
-target_link_libraries(run_tests
-                      pthread)
 
-# Demo application
-exec_program("git"
-             ${CMAKE_CURRENT_SOURCE_DIR}
-             ARGS "rev-parse --short=8 HEAD"
-             OUTPUT_VARIABLE GIT_HASH)
+# add source properties
+set_source_files_properties(${tests_src} PROPERTIES COMPILE_FLAGS "${CANARD_CXX_FLAGS}")
+set_source_files_properties(../canard.c PROPERTIES COMPILE_FLAGS "${CANARD_C_FLAGS}")
 
-add_executable(demo
-               demo.c
-               ../canard.c
-               ../drivers/socketcan/socketcan.c)
+add_executable(test_canard ${tests_src} ../canard.c)
+target_link_libraries(test_canard GTest::gtest_main)
+if (CANARD_LINK_FLAGS)
+    set_target_properties(test_canard PROPERTIES LINK_FLAGS "${CANARD_LINK_FLAGS}")
+endif()
+include(GoogleTest)
+gtest_discover_tests(test_canard)
 
-target_compile_definitions(demo
-                           PUBLIC GIT_HASH=0x${GIT_HASH})
+if (CANARD_ENABLE_COVERAGE)
+    add_custom_target(coverage
+                        COMMAND lcov --directory . --capture --output-file coverage.info
+                        COMMAND lcov --remove coverage.info '/usr/*' '*gtest*' '*tests/*' --output-file coverage.info
+                        COMMAND lcov --list coverage.info
+                        COMMAND genhtml coverage.info --output-directory coverage
+                        COMMENT echo "Coverage report generated at ${CMAKE_BINARY_DIR}/coverage/index.html"
+                        WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+    add_custom_command(TARGET coverage POST_BUILD COMMAND ;)
+endif()

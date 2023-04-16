@@ -22,42 +22,42 @@
  * Contributors: https://github.com/UAVCAN/libcanard/contributors
  */
 
-#include <catch.hpp>
+#include <gtest/gtest.h>
 #include <cmath>
 #include "canard.h"
 
 
-TEST_CASE("Float16, FromNative")
+TEST(Float16, FromNative)
 {
     // Reference values were generated manually with libuavcan and numpy.float16()
-    REQUIRE(0b0000000000000000 == canardConvertNativeFloatToFloat16(0));
-    REQUIRE(0b0011110000000000 == canardConvertNativeFloatToFloat16(1));
-    REQUIRE(0b1100000000000000 == canardConvertNativeFloatToFloat16(-2));
-    REQUIRE(0b0111110000000000 == canardConvertNativeFloatToFloat16(999999));   // +inf
-    REQUIRE(0b1111101111111111 == canardConvertNativeFloatToFloat16(-65519));   // -max
-    REQUIRE(0b0111111111111111 == canardConvertNativeFloatToFloat16(std::nanf("")));  // nan
+    ASSERT_TRUE(0b0000000000000000 == canardConvertNativeFloatToFloat16(0));
+    ASSERT_TRUE(0b0011110000000000 == canardConvertNativeFloatToFloat16(1));
+    ASSERT_TRUE(0b1100000000000000 == canardConvertNativeFloatToFloat16(-2));
+    ASSERT_TRUE(0b0111110000000000 == canardConvertNativeFloatToFloat16(999999));   // +inf
+    ASSERT_TRUE(0b1111101111111111 == canardConvertNativeFloatToFloat16(-65519));   // -max
+    ASSERT_TRUE(0b0111111111111111 == canardConvertNativeFloatToFloat16(std::nanf("")));  // nan
 }
 
 
-TEST_CASE("Float16, ToNative")
+TEST(Float16, ToNative)
 {
     // Reference values were generated manually with libuavcan and numpy.float16()
-    REQUIRE(Approx(0.0F)      == canardConvertFloat16ToNativeFloat(0b0000000000000000));
-    REQUIRE(Approx(1.0F)      == canardConvertFloat16ToNativeFloat(0b0011110000000000));
-    REQUIRE(Approx(-2.0F)     == canardConvertFloat16ToNativeFloat(0b1100000000000000));
-    REQUIRE(Approx(-65504.0F) == canardConvertFloat16ToNativeFloat(0b1111101111111111));
-    REQUIRE(std::isinf(canardConvertFloat16ToNativeFloat(0b0111110000000000)));
+    EXPECT_FLOAT_EQ(0.0F, canardConvertFloat16ToNativeFloat(0b0000000000000000));
+    EXPECT_FLOAT_EQ(1.0F, canardConvertFloat16ToNativeFloat(0b0011110000000000));
+    EXPECT_FLOAT_EQ(-2.0F, canardConvertFloat16ToNativeFloat(0b1100000000000000));
+    EXPECT_FLOAT_EQ(-65504.0F, canardConvertFloat16ToNativeFloat(0b1111101111111111));
+    ASSERT_TRUE(std::isinf(canardConvertFloat16ToNativeFloat(0b0111110000000000)));
 
-    REQUIRE(bool(std::isnan(canardConvertFloat16ToNativeFloat(0b0111111111111111))));
+    ASSERT_TRUE(bool(std::isnan(canardConvertFloat16ToNativeFloat(0b0111111111111111))));
 }
 
 
-TEST_CASE("Float16, BackAndForth")
+TEST(Float16, BackAndForth)
 {
     float x = -1000.0F;
     while (x <= 1000.0F)
     {
-        REQUIRE(Approx(x) == canardConvertFloat16ToNativeFloat(canardConvertNativeFloatToFloat16(x)));
+        EXPECT_FLOAT_EQ(x, canardConvertFloat16ToNativeFloat(canardConvertNativeFloatToFloat16(x)));
         x += 0.5F;
     }
 }

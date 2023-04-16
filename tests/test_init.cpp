@@ -22,7 +22,7 @@
  * Contributors: https://github.com/UAVCAN/libcanard/contributors
  */
 
-#include <catch.hpp>
+#include <gtest/gtest.h>
 #include "canard.h"
 
 static bool shouldAcceptTransferMock(const CanardInstance*,
@@ -40,7 +40,7 @@ static void onTransferReceptionMock(CanardInstance*,
 }
 
 
-TEST_CASE("Init, UserReference")
+TEST(Init, UserReference)
 {
     std::uint8_t memory_arena[1024];
 
@@ -50,7 +50,7 @@ TEST_CASE("Init, UserReference")
                sizeof(memory_arena),
                &onTransferReceptionMock,
                &shouldAcceptTransferMock,
-               reinterpret_cast<void*>(12345));
+               reinterpret_cast<void*>(12345U));
 
-    REQUIRE(12345 == reinterpret_cast<int>(canardGetUserReference(&ins)));
+    ASSERT_TRUE(12345 == reinterpret_cast<intptr_t>(canardGetUserReference(&ins)));
 }
