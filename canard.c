@@ -1141,6 +1141,7 @@ CANARD_INTERNAL int16_t enqueueTxFrames(CanardInstance* ins,
             queue_item = createTxItem(&ins->allocator);
             if (queue_item == NULL)
             {
+                CANARD_ASSERT(false);
                 return -CANARD_ERROR_OUT_OF_MEMORY;          // TODO: Purge all frames enqueued so far
             }
 
