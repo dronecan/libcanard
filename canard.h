@@ -66,6 +66,14 @@ extern "C" {
 #endif
 #endif
 
+#ifndef CANARD_MAX_MTU
+#if CANARD_ENABLE_CANFD
+#define CANARD_MAX_MTU                               64
+#else
+#define CANARD_MAX_MTU                               8
+#endif
+#endif
+
 /// By default this macro resolves to the standard assert(). The user can redefine this if necessary.
 #ifndef CANARD_ASSERT
 # define CANARD_ASSERT(x)   assert(x)
@@ -101,14 +109,15 @@ extern "C" {
 #define CANARD_ERROR_RX_SHORT_FRAME                    16
 #define CANARD_ERROR_RX_BAD_CRC                        17
 
-/// The size of a memory block in bytes.
-#if CANARD_ENABLE_CANFD
-#define CANARD_MEM_BLOCK_SIZE                       128U
-#elif CANARD_ENABLE_DEADLINE
-#define CANARD_MEM_BLOCK_SIZE                       40U
+#if CANARD_ENABLE_DEADLINE && CANARD_ENABLE_DEADLINE && CANARD_MULTI_IFACE
+#define CANARD_MEM_BLOCK_SIZE                       48U
 #else
 #define CANARD_MEM_BLOCK_SIZE                       32U
 #endif
+
+// CANARD_FRAME_OPTION Bitmasks
+#define CANARD_FRAME_OPTION_CANFD                   0x01U
+#define CANARD_FRAME_OPTION_TAO_DISABLED            0x02U
 
 #define CANARD_CAN_FRAME_MAX_DATA_LEN               8U
 #if CANARD_ENABLE_CANFD
@@ -184,21 +193,17 @@ typedef struct
      *  - CANARD_CAN_FRAME_ERR
      */
     uint32_t id;
-#if CANARD_ENABLE_DEADLINE
-    uint64_t deadline_usec;
-#endif
-#if CANARD_ENABLE_CANFD
-    uint8_t data[CANARD_CANFD_FRAME_MAX_DATA_LEN];
-#else
-    uint8_t data[CANARD_CAN_FRAME_MAX_DATA_LEN];
-#endif
-    uint8_t data_len;
+    uint8_t data[CANARD_MAX_MTU];
+    uint16_t data_len;
     uint8_t iface_id;
 #if CANARD_MULTI_IFACE
     uint8_t iface_mask;
 #endif
 #if CANARD_ENABLE_CANFD
-    bool canfd;
+    bool canfd;  // TODO: replace with 16 bit option bits
+#endif
+#if CANARD_ENABLE_DEADLINE
+    uint64_t deadline_usec;
 #endif
 } CanardCANFrame;
 
@@ -228,6 +233,7 @@ typedef struct CanardInstance CanardInstance;
 typedef struct CanardRxTransfer CanardRxTransfer;
 typedef struct CanardRxState CanardRxState;
 typedef struct CanardTxQueueItem CanardTxQueueItem;
+typedef struct CanardBufferBlock CanardBufferBlock;
 
 typedef struct {
     CanardTransferType transfer_type; ///< Type of transfer: CanardTransferTypeBroadcast, CanardTransferTypeRequest, CanardTransferTypeResponse
@@ -246,17 +252,44 @@ typedef struct {
 #if CANARD_MULTI_IFACE
     uint8_t iface_mask; ///< Bitmask of interfaces to send the transfer on
 #endif
-#if CANARD_ENABLE_TAO_OPTION
-    bool tao; ///< True if tail array optimization is enabled
-#endif
 } CanardTxTransfer;
+
+typedef struct {
+    uint32_t id;
+    uint16_t data_len;
+    uint8_t iface_id;
+#if CANARD_MULTI_IFACE
+    uint8_t iface_mask;
+#endif
+#if CANARD_ENABLE_CANFD
+    bool canfd; // TODO: replace with option bits
+#endif
+#if CANARD_ENABLE_DEADLINE
+    uint64_t deadline_usec;
+#endif
+} CanardTxQueueCANFrame;
 
 struct CanardTxQueueItem
 {
     CanardTxQueueItem* next;
+#if CANARD_MAX_MTU <= 8
     CanardCANFrame frame;
+#else
+    CanardTxQueueCANFrame frame;
+    canard_buffer_idx_t payload_next;
+    uint8_t payload_head[]; // use remaining space in buffer, the rest is allocated from pool
+#endif
 };
 CANARD_STATIC_ASSERT(sizeof(CanardTxQueueItem) <= CANARD_MEM_BLOCK_SIZE, "Unexpected memory block size");
+
+#if CANARD_MAX_MTU > 8
+#define CANARD_TX_QUEUE_PAYLOAD_HEAD_SIZE (CANARD_MEM_BLOCK_SIZE - offsetof(CanardTxQueueItem, payload_head))
+
+// CANARD_STATIC_ASSERT(CANARD_TX_QUEUE_PAYLOAD_HEAD_SIZE > 0, "Unexpected memory block size");
+
+CANARD_STATIC_ASSERT((sizeof(CanardCANFrame)-CANARD_MAX_MTU) == sizeof(CanardTxQueueCANFrame), "CanardTxQueueItem.frame and CanardCANFrame size mismatch");
+#endif
+
 /**
  * The application must implement this function and supply a pointer to it to the library during initialization.
  * The library calls this function to determine whether the transfer should be received.
@@ -306,11 +339,11 @@ typedef struct
  * INTERNAL DEFINITION, DO NOT USE DIRECTLY.
  * Buffer block for received data.
  */
-typedef struct CanardBufferBlock
+struct CanardBufferBlock
 {
     struct CanardBufferBlock* next;
     uint8_t data[];
-} CanardBufferBlock;
+};
 
 /**
  * INTERNAL DEFINITION, DO NOT USE DIRECTLY.
@@ -345,6 +378,7 @@ struct CanardRxState
     uint8_t  iface_id;
     uint8_t buffer_head[];
 };
+CANARD_STATIC_ASSERT(sizeof(CanardRxState) <= CANARD_MEM_BLOCK_SIZE, "Unexpected memory block size");
 CANARD_STATIC_ASSERT(offsetof(CanardRxState, buffer_head) <= 27, "Invalid memory layout");
 CANARD_STATIC_ASSERT(CANARD_MULTIFRAME_RX_PAYLOAD_HEAD_SIZE >= 5, "Invalid memory layout");
 
@@ -365,6 +399,10 @@ struct CanardInstance
     CanardTxQueueItem* tx_queue;                    ///< TX frames awaiting transmission
 
     void* user_reference;                           ///< User pointer that can link this instance with other objects
+
+#if CANARD_MAX_MTU > 8
+    CanardCANFrame tmp_frame;                       ///< Temporary frame storage for returning from canardPeekTxQueue()
+#endif
 
 #if CANARD_ENABLE_TAO_OPTION
     bool tao_disabled;                              ///< True if TAO is disabled
@@ -552,17 +590,23 @@ int16_t canardRequestOrRespondObj(CanardInstance* ins,             ///< Library 
  * The application will call this function after canardBroadcast() or canardRequestOrRespond() to transmit generated
  * frames over the CAN bus.
  */
-CanardCANFrame* canardPeekTxQueue(const CanardInstance* ins);
+const CanardCANFrame* canardPeekTxQueue(CanardInstance* ins);
 
 /**
- * Returns the timeout for the frame on top of TX queue.
- * Returns zero if the TX queue is empty.
- * The application will call this function after canardPeekTxQueue() to determine when to call canardPopTxQueue(), if
- * the frame is not transmitted.
+ * Returns a pointer to the frame at the specified depth in the TX queue.
+ * Returns NULL if the TX queue is empty or if the depth is out of range.
+ * The application will call this function after canardBroadcast() or canardRequestOrRespond() to transmit generated
+ * frames over the CAN bus without removing them from the queue. This can allow for multi interface transmission.
  */
-#if CANARD_ENABLE_DEADLINE
-uint64_t canardPeekTxQueueDeadline(const CanardInstance* ins);
+const CanardCANFrame* canardTxQueueItemToFrame(CanardInstance* ins, CanardTxQueueItem* obj);
+
+/*
+ * Mark a frame as transmitted on iface index.
+*/
+#if CANARD_MULTI_IFACE
+void canardMarkFrameTransmitted(CanardTxQueueItem* obj, uint8_t iface);
 #endif
+
 /**
  * Removes the top priority frame from the TX queue.
  * The application will call this function after canardPeekTxQueue() once the obtained frame has been processed.

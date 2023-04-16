@@ -158,6 +158,35 @@ CANARD_INTERNAL CanardRxState *canardRxFromIdx(CanardPoolAllocator* allocator, c
 
 CANARD_INTERNAL canard_buffer_idx_t canardRxToIdx(CanardPoolAllocator* allocator, const CanardRxState *rx);
 
+
+/*
+ * This function can be used to prepare a CAN frame for transmission.
+ * The function will allocate a buffer for the payload and copy the payload into it.
+ *
+ * Return value will report 0 on success, or a negative error code.
+*/
+#if CANARD_MAX_MTU > 8
+CANARD_INTERNAL int16_t canardBufferedCANFramePushBytes(CanardPoolAllocator* allocator,
+                                                        CanardTxQueueItem *queue_item,
+                                                        const uint8_t* data,
+                                                        uint16_t data_len);
+
+/*
+ * Convert a Queue CAN Frame to CANFrame struct
+*/
+CANARD_INTERNAL void canardBufferedCANFrameToCANFrame(CanardPoolAllocator* allocator,
+                                                      CanardCANFrame *in_out_frame,
+                                                      CanardTxQueueItem *queue_item);
+
+/*
+* This function can be used to release a CAN frame buffer.
+* The function will release the buffer allocated by canardBufferedCANFramePushBytes().
+* This is automatically called when Tx Item is popped.
+*/
+CANARD_INTERNAL void canardReleaseCANFrameBuffer(CanardPoolAllocator* allocator,
+                                                 CanardTxQueueItem *queue_item);
+#endif
+
 #ifdef __cplusplus
 }
 #endif
