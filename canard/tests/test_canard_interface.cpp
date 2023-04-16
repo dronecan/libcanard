@@ -206,8 +206,8 @@ TEST(StaticCanardTest, test_multiple_clients) {
     clock_gettime(CLOCK_MONOTONIC, &ts);
     uint64_t timestamp = ts.tv_sec * 1000000 + ts.tv_nsec / 1000;
 
-    uint8_t buffer0[1024] {};
-    uint8_t buffer1[1024] {};
+    uint8_t buffer0[2048] {};
+    uint8_t buffer1[2048] {};
     CANARD_TEST_INTERFACE(0).init(buffer0, sizeof(buffer0));
     CANARD_TEST_INTERFACE(1).init(buffer1, sizeof(buffer1));
 
