@@ -1,16 +1,16 @@
 #!/bin/bash
 
 function run_cmake() {
-    # # remove build directory if it exists
-    # rm -rf build
+    # remove build directory if it exists
+    rm -rf build
     # # make build directory
-    # mkdir build
+    mkdir build
     # echo with highlighted text
     echo -e "\e[1;32mRunning cmake with options: $*\e[0m"
     cmake $* -S . -B build || exit 1
     pushd build/
     make || exit 1
-    ctest || exit 1
+    ctest -T memcheck || exit 1
     # also run the coverage if coverage is enabled
     if [[ $* == *-DCANARD_ENABLE_COVERAGE=1* ]]; then
         echo -e "\e[1;32mRunning coverage test\e[0m"
