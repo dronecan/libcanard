@@ -1,5 +1,6 @@
 cmake_minimum_required (VERSION 3.5)
 project(CxxCanard)
+include(CTest)
 
 # execute process to generate libcanard headers using dronecan_dsdlc/dronecan_dsdlc.py
 execute_process(COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/dronecan_dsdlc/dronecan_dsdlc.py
