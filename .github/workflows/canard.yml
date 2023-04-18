@@ -18,7 +18,8 @@ jobs:
 
     - name: Install Dependencies
       run: |
-        sudo apt install gcc-multilib g++-multilib lcov ccache
+        sudo dpkg --add-architecture i386
+        sudo apt-get install gcc-multilib g++-multilib lcov ccache valgrind libc6-dbg:i386
         sudo pip install empy pydronecan
     - name: Submodule update
       run: |
