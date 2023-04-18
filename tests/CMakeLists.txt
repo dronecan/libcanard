@@ -7,6 +7,7 @@ project(libcanard)
 
 # Libcanard
 include_directories(..)
+include(CTest)
 # include_directories(../drivers/socketcan)
 
 # Compiler configuration - supporting only Clang and GCC
