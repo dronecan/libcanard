@@ -111,7 +111,7 @@ private:
 /// @return SubscriberArgCb object
 template <typename T, typename msgtype>
 SubscriberArgCb<T, msgtype>* allocate_sub_arg_callback(T* _arg, void (*_cb)(T* arg, const CanardRxTransfer& transfer, const msgtype& msg), uint8_t index) {
-    return (new SubscriberArgCb<T, msgtype>(_arg, _cb, index));
+    return allocate<SubscriberArgCb<T, msgtype>>(_arg, _cb, index);
 }
 
 template <typename msgtype>
@@ -131,7 +131,7 @@ private:
 /// @return SubscriberStaticCb object
 template <typename msgtype>
 SubscriberStaticCb<msgtype>* allocate_sub_static_callback(void (*cb)(const CanardRxTransfer&, const msgtype&), uint8_t index) {
-    return (new SubscriberStaticCb<msgtype>(cb, index));
+    return allocate<SubscriberStaticCb<msgtype>>(cb, index);
 }
 
 template <typename T, typename msgtype>
@@ -153,7 +153,7 @@ private:
 /// @return SubscriberObjCb object
 template <typename T, typename msgtype>
 SubscriberObjCb<T, msgtype>* allocate_sub_obj_callback(T* obj, void (T::*cb)(const CanardRxTransfer& transfer, const msgtype& msg), uint8_t index) {
-    return (new SubscriberObjCb<T, msgtype>(obj, cb, index));
+    return allocate<SubscriberObjCb<T, msgtype>>(obj, cb, index);
 }
 
 } // namespace Canard

@@ -79,8 +79,8 @@ TEST(StaticCanardTest, test_publish_subscribe) {
     // check if message was received
     ASSERT_TRUE(called_handle_node_status);
 
-    delete static_cb0;
-    delete static_cb1;
+    deallocate(static_cb0);
+    deallocate(static_cb1);
     CANARD_TEST_INTERFACE(0).free();
     CANARD_TEST_INTERFACE(1).free();
 }

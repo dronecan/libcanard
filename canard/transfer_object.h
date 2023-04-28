@@ -47,8 +47,8 @@ public:
         uint32_t _transfer_desc = MAKE_TRANSFER_DESCRIPTOR(data_type_id, transfer_type, src_node_id, dst_node_id);
         // check head
         if (tid_map_head[index] == nullptr) {
-            tid_map_head[index] = new TransferObject(_transfer_desc);
-            if (tid_map_head[index] == nullptr) {
+            tid_map_head[index] = allocate<TransferObject>(_transfer_desc);
+            if (tid_map_head[index]  == nullptr) {
                 return nullptr;
             }
             return &tid_map_head[index]->tid;
@@ -66,7 +66,7 @@ public:
         }
 
         // create a new entry, if not found
-        tid_map_ptr->next = new TransferObject(_transfer_desc);
+        tid_map_ptr->next = allocate<TransferObject>(_transfer_desc);
         if (tid_map_ptr->next == nullptr) {
             return nullptr;
         }
@@ -83,7 +83,7 @@ public:
         TransferObject *tid_map_ptr = tid_map_head[index];
         while(tid_map_ptr) {
             TransferObject *next = tid_map_ptr->next;
-            delete tid_map_ptr;
+            deallocate(tid_map_ptr);
             tid_map_ptr = next;
         }
         tid_map_head[index] = nullptr;

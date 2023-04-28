@@ -61,8 +61,8 @@ TEST(StaticCoreTest, test_publish_subscribe) {
     // check if message was received
     ASSERT_TRUE(called_handle_node_status);
 
-    delete handle_node_status_cb_1;
-    delete handle_node_status_cb_2;
+    deallocate(handle_node_status_cb_1);
+    deallocate(handle_node_status_cb_2);
 }
 
 // test multiple subscribers
@@ -74,7 +74,7 @@ public:
         handle_node_status_cb = Canard::allocate_sub_obj_callback(this, &StaticCoreTest::TestSubscriber0::handle_node_status, 0);
     }
     ~TestSubscriber0() {
-        delete handle_node_status_cb;
+        deallocate(handle_node_status_cb);
     }
     void handle_node_status(const CanardRxTransfer &transfer, const uavcan_protocol_NodeStatus &msg);
     static int call_counts;
@@ -100,7 +100,7 @@ public:
         handle_node_status_cb = Canard::allocate_sub_obj_callback(this, &StaticCoreTest::TestSubscriber1::handle_node_status, 1);
     }
     ~TestSubscriber1() {
-        delete handle_node_status_cb;
+        deallocate(handle_node_status_cb);
     }
     void handle_node_status(const CanardRxTransfer &transfer, const uavcan_protocol_NodeStatus &msg) {
         called_handle_node_status = true;
@@ -177,7 +177,7 @@ public:
         cb = Canard::allocate_static_callback(_cb);
     }
     ~StaticCallbackWrapper() {
-        delete cb;
+        deallocate(cb);
     }
     Canard::StaticCallback<msgtype> *cb;
 };
@@ -250,9 +250,8 @@ TEST(StaticCoreTest, test_service) {
     ASSERT_TRUE(get_node_info_client1.request(1, req));
     // check if response was received
     ASSERT_TRUE(handle_get_node_info_response_called);
-    // free memory
-    delete static_cb0;
-    delete static_cb1;
+    deallocate(static_cb0);
+    deallocate(static_cb1);
     CXX_TEST_INTERFACE(0).free();
     CXX_TEST_INTERFACE(1).free();
 }
