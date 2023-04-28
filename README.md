@@ -45,6 +45,15 @@ INCLUDE += libcanard/drivers/socketcan
 CSRC += libcanard/drivers/socketcan/socketcan.c
 ```
 
+Example for CMake, first installing dependencies. 
+
+```bash
+sudo apt-get update && sudo apt-get install gcc-multilib g++-multilib
+cmake -S . -B build -DBUILD_TESTING=ON
+cmake --build build
+ctest .
+```
+
 There is no dedicated documentation for the library API, because it is simple enough to be self-documenting.
 Please check out the explanations provided in the comments in the header file to learn the basics.
 Most importantly, check out the demo application under `tests/demo.c`.
