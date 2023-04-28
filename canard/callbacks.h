@@ -55,7 +55,7 @@ private:
 /// @return StaticCallback object
 template <typename msgtype>
 StaticCallback<msgtype> *allocate_static_callback(void (*cb)(const CanardRxTransfer& transfer, const msgtype& msg)) {
-    return (new StaticCallback<msgtype>(cb));
+    return allocate<StaticCallback<msgtype>>(cb);
 }
 
 /// @brief Object callback class.
@@ -87,7 +87,7 @@ private:
 /// @return ObjCallback object
 template <typename T, typename msgtype>
 ObjCallback<T, msgtype>* allocate_obj_callback(T* obj, void (T::*cb)(const CanardRxTransfer& transfer, const msgtype& msg)) {
-    return (new ObjCallback<T, msgtype>(obj, cb));
+    return allocate<ObjCallback<T, msgtype>>(obj, cb);
 }
 
 /// @brief Argument callback class.
@@ -117,7 +117,7 @@ private:
 /// @return ArgCallback object
 template <typename T, typename msgtype>
 ArgCallback<T, msgtype>* allocate_arg_callback(T* arg, void (*cb)(T* arg, const CanardRxTransfer& transfer, const msgtype& msg)) {
-    return (new ArgCallback<T, msgtype>(arg, cb));
+    return allocate<ArgCallback<T, msgtype>>(arg, cb);
 }
 
 } // namespace Canard
