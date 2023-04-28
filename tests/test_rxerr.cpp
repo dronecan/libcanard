@@ -96,7 +96,7 @@ TEST(canardHandleRxFrame, incompatiblePacketHandlingCorrectness)
 {
     uint8_t canard_memory_pool[1024];
     CanardInstance canard;
-    CanardCANFrame frame;
+    CanardCANFrame frame {};
     int16_t err;
 
     //Setup frame data to be single frame transfer
@@ -140,9 +140,9 @@ TEST(canardHandleRxFrame, incompatiblePacketHandlingCorrectness)
 //"canardHandleRxFrame wrong address handling, Correctness"
 TEST(canardHandleRxFrame, wrongAddressHandlingCorrectness)
 {
-    uint8_t canard_memory_pool[1024];
+    uint8_t canard_memory_pool[1024] {};
     CanardInstance canard;
-    CanardCANFrame frame;
+    CanardCANFrame frame {};
     int16_t err;
 
     //Setup frame data to be single frame transfer
@@ -171,9 +171,9 @@ TEST(canardHandleRxFrame, wrongAddressHandlingCorrectness)
 // "canardHandleRxFrame shouldAccept handling, Correctness"
 TEST(canardHandleRxFrame, shouldAcceptHandlingCorrectness)
 {
-    uint8_t canard_memory_pool[1024];
+    uint8_t canard_memory_pool[1024] {};
     CanardInstance canard;
-    CanardCANFrame frame;
+    CanardCANFrame frame {};
     int16_t err;
 
     //Setup frame data to be single frame transfer
@@ -202,9 +202,9 @@ TEST(canardHandleRxFrame, shouldAcceptHandlingCorrectness)
 // "canardHandleRxFrame no state handling, Correctness"
 TEST(canardHandleRxFrame, noStateHandlingCorrectness)
 {
-    uint8_t canard_memory_pool[1024];
+    uint8_t canard_memory_pool[1024] {};
     CanardInstance canard;
-    CanardCANFrame frame;
+    CanardCANFrame frame {};
     int16_t err;
 
     g_should_accept = true;
@@ -269,9 +269,9 @@ TEST(canardHandleRxFrame, noStateHandlingCorrectness)
 // TEST("canardHandleRxFrame missed start handling, Correctness")
 TEST(canardHandleRxFrame, missedStartHandlingCorrectness)
 {
-    uint8_t canard_memory_pool[1024];
+    uint8_t canard_memory_pool[1024] {};
     CanardInstance canard;
-    CanardCANFrame frame;
+    CanardCANFrame frame {};
     int16_t err;
 
     g_should_accept = true;
@@ -330,9 +330,9 @@ TEST(canardHandleRxFrame, missedStartHandlingCorrectness)
 // TEST("canardHandleRxFrame short frame handling, Correctness")
 TEST(canardHandleRxFrame, shortFrameHandlingCorrectness)
 {
-    uint8_t canard_memory_pool[1024];
+    uint8_t canard_memory_pool[1024] {};
     CanardInstance canard;
-    CanardCANFrame frame;
+    CanardCANFrame frame {};
     int16_t err;
 
     g_should_accept = true;
@@ -362,7 +362,7 @@ TEST(canardHandleRxFrame, oomHandlingCorrectness)
 {
     uint8_t dummy_buf;
     CanardInstance canard;
-    CanardCANFrame frame;
+    CanardCANFrame frame {};
     int16_t err;
 
     g_should_accept = true;
@@ -383,9 +383,9 @@ TEST(canardHandleRxFrame, oomHandlingCorrectness)
 // TEST("canardHandleRxFrame unusual single frame, Correctness")
 TEST(canardHandleRxFrame, unusualSingleFrameCorrectness)
 {
-    uint8_t canard_memory_pool[1024];
+    uint8_t canard_memory_pool[1024] {};
     CanardInstance canard;
-    CanardCANFrame frame;
+    CanardCANFrame frame {};
     int16_t err;
 
     g_should_accept = true;
