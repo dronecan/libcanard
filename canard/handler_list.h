@@ -49,7 +49,6 @@ public:
 #ifdef WITH_SEMAPHORE
         WITH_SEMAPHORE(sem[index]);
 #endif
-        // find the entry in the registry with the same msgid
         next = head[index];
         head[index] = this;
         msgid = _msgid;

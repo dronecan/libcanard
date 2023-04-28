@@ -1,5 +1,6 @@
 #pragma once
 #include <canard/interface.h>
+#include <canard/transfer_object.h>
 
 namespace Canard {
 
@@ -60,6 +61,10 @@ public:
 
     void handle_transfer(CanardRxTransfer &transfer);
 
+    void free() {
+        // free transfer ids
+        Canard::TransferObject::free_tid_ptr(get_index());
+    }
 private:
     uint8_t node_id;
 };

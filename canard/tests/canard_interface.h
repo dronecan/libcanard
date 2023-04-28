@@ -2,6 +2,7 @@
 
 #include <canard/interface.h>
 #include <canard.h>
+#include <canard/transfer_object.h>
 
 namespace Canard {
 
@@ -80,6 +81,11 @@ public:
     void update_tx(uint64_t timestamp_usec) override;
     // set node id
     void set_node_id(uint8_t node_id);
+
+    void free() {
+        // free transfer ids
+        Canard::TransferObject::free_tid_ptr(get_index());
+    }
 };
 
 } // namespace CubeFramework

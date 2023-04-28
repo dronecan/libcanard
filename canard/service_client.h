@@ -39,6 +39,7 @@ public:
     Client(Interface &_interface, Callback<rsptype> &_cb) :
     HandlerList(CanardTransferTypeResponse, rsptype::cxx_iface::ID, rsptype::cxx_iface::SIGNATURE, _interface.get_index()),
     Sender(_interface),
+    server_node_id(255),
     cb(_cb) {
         next = branch_head[index];
         branch_head[index] = this;
