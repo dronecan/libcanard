@@ -20,6 +20,7 @@
  * SOFTWARE.
  *
  */
+#pragma once
 
 #include <stdint.h>
 #include <canard.h>
@@ -34,7 +35,7 @@ namespace Canard {
 /// @brief list of object to retain transfer id for transfer descriptor
 class TransferObject {
 public:
-    TransferObject(uint32_t _transfer_desc) : next(nullptr), transfer_desc(_transfer_desc) {}
+    TransferObject(uint32_t _transfer_desc) : next(nullptr), transfer_desc(_transfer_desc), tid(0) {}
 
     static uint8_t* get_tid_ptr(uint8_t index, uint16_t data_type_id, CanardTransferType transfer_type, uint8_t src_node_id, uint8_t dst_node_id) NOINLINE_FUNC {
         if (index >= CANARD_NUM_HANDLERS) {
@@ -70,6 +71,22 @@ public:
             return nullptr;
         }
         return &tid_map_ptr->next->tid;
+    }
+
+    static void free_tid_ptr(uint8_t index) NOINLINE_FUNC {
+        if (index >= CANARD_NUM_HANDLERS) {
+            return;
+        }
+#ifdef WITH_SEMAPHORE
+        WITH_SEMAPHORE(sem[index]);
+#endif
+        TransferObject *tid_map_ptr = tid_map_head[index];
+        while(tid_map_ptr) {
+            TransferObject *next = tid_map_ptr->next;
+            delete tid_map_ptr;
+            tid_map_ptr = next;
+        }
+        tid_map_head[index] = nullptr;
     }
 private:
     static TransferObject *tid_map_head[CANARD_NUM_HANDLERS];

@@ -29,6 +29,7 @@ namespace Canard {
 template <typename msgtype>
 class Callback {
 public:
+    virtual ~Callback() = default;
     virtual void operator()(const CanardRxTransfer& transfer, const msgtype& msg) = 0;
 };
 

@@ -44,11 +44,11 @@ TEST(StaticCanardTest, test_publish_subscribe) {
     Publisher<uavcan_protocol_NodeStatus> node_status_pub1(CANARD_TEST_INTERFACE(1));
 
     // create subscriber for message uavcan_protocol_NodeStatus on interface CoreTestInterface
-    allocate_sub_static_callback(&handle_node_status, 0);
+    auto static_cb0 = allocate_sub_static_callback(&handle_node_status, 0);
 
     // create subscriber for message uavcan_protocol_NodeStatus on different interface instance CoreTestInterface
     // with callback function handle_node_status
-    allocate_sub_static_callback(&handle_node_status, 1);
+    auto static_cb1 = allocate_sub_static_callback(&handle_node_status, 1);
 
     uint8_t buffer0[1024] {};
     uint8_t buffer1[1024] {};
@@ -78,6 +78,11 @@ TEST(StaticCanardTest, test_publish_subscribe) {
 
     // check if message was received
     ASSERT_TRUE(called_handle_node_status);
+
+    delete static_cb0;
+    delete static_cb1;
+    CANARD_TEST_INTERFACE(0).free();
+    CANARD_TEST_INTERFACE(1).free();
 }
 
 ///////////// TESTS for Service Server and Client //////////////
@@ -236,6 +241,15 @@ TEST(StaticCanardTest, test_multiple_clients) {
     CANARD_TEST_INTERFACE(0).update_tx(timestamp);
     ASSERT_EQ(TestClient1::call_counts, 2);
     ASSERT_EQ(TestServer0::call_counts, 2);
+
+    for (auto &i : client0) {
+        delete i;
+    }
+    for (auto &i : client1) {
+        delete i;
+    }
+    CANARD_TEST_INTERFACE(0).free();
+    CANARD_TEST_INTERFACE(1).free();
 }
 
 } // namespace StaticCanardTest

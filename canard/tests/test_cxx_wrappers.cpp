@@ -37,10 +37,10 @@ TEST(StaticCoreTest, test_publish_subscribe) {
     CANARD_PUBLISHER(CXX_TEST_INTERFACE(1), node_status_pub1, uavcan_protocol_NodeStatus);
 
     // create subscriber for message uavcan_protocol_NodeStatus on interface CoreTestInterface
-    Canard::allocate_sub_static_callback(handle_node_status, 0);
+    auto handle_node_status_cb_1 = Canard::allocate_sub_static_callback(handle_node_status, 0);
     // create subscriber for message uavcan_protocol_NodeStatus on different interface instance CoreTestInterface
     // with callback function handle_node_status
-    Canard::allocate_sub_static_callback(handle_node_status, 1);
+    auto handle_node_status_cb_2 = Canard::allocate_sub_static_callback(handle_node_status, 1);
 
     // set node id for interfaces
     CXX_TEST_INTERFACE(0).set_node_id(1);
@@ -60,6 +60,9 @@ TEST(StaticCoreTest, test_publish_subscribe) {
     ASSERT_TRUE(node_status_pub0.broadcast(msg));
     // check if message was received
     ASSERT_TRUE(called_handle_node_status);
+
+    delete handle_node_status_cb_1;
+    delete handle_node_status_cb_2;
 }
 
 // test multiple subscribers
@@ -68,10 +71,16 @@ TEST(StaticCoreTest, test_publish_subscribe) {
 class TestSubscriber0 {
 public:
     TestSubscriber0() {
-        Canard::allocate_sub_obj_callback(this, &StaticCoreTest::TestSubscriber0::handle_node_status, 0);
+        handle_node_status_cb = Canard::allocate_sub_obj_callback(this, &StaticCoreTest::TestSubscriber0::handle_node_status, 0);
+    }
+    ~TestSubscriber0() {
+        delete handle_node_status_cb;
     }
     void handle_node_status(const CanardRxTransfer &transfer, const uavcan_protocol_NodeStatus &msg);
     static int call_counts;
+
+private:
+    Canard::SubscriberObjCb<TestSubscriber0,uavcan_protocol_NodeStatus>  *handle_node_status_cb;
 };
 
 void TestSubscriber0::handle_node_status(const CanardRxTransfer &transfer, const uavcan_protocol_NodeStatus &msg) {
@@ -88,7 +97,10 @@ int TestSubscriber0::call_counts = 0;
 class TestSubscriber1 {
 public:
     TestSubscriber1() {
-        Canard::allocate_sub_obj_callback(this, &StaticCoreTest::TestSubscriber1::handle_node_status, 1);
+        handle_node_status_cb = Canard::allocate_sub_obj_callback(this, &StaticCoreTest::TestSubscriber1::handle_node_status, 1);
+    }
+    ~TestSubscriber1() {
+        delete handle_node_status_cb;
     }
     void handle_node_status(const CanardRxTransfer &transfer, const uavcan_protocol_NodeStatus &msg) {
         called_handle_node_status = true;
@@ -98,6 +110,8 @@ public:
         call_counts++;
     }
     static int call_counts;
+private:
+    Canard::SubscriberObjCb<TestSubscriber1,uavcan_protocol_NodeStatus> *handle_node_status_cb;
 };
 
 int TestSubscriber1::call_counts = 0;
@@ -156,11 +170,25 @@ void handle_get_node_info_response(const CanardRxTransfer &transfer, const uavca
     handle_get_node_info_response_called = true;
 }
 
+template <typename msgtype>
+class StaticCallbackWrapper {
+public:
+    StaticCallbackWrapper(void (*_cb)(const CanardRxTransfer &transfer, const msgtype &req)) {
+        cb = Canard::allocate_static_callback(_cb);
+    }
+    ~StaticCallbackWrapper() {
+        delete cb;
+    }
+    Canard::StaticCallback<msgtype> *cb;
+};
+
 void handle_get_node_info_request0(const CanardRxTransfer &transfer, const uavcan_protocol_GetNodeInfoRequest &req);
-Canard::Server<uavcan_protocol_GetNodeInfoRequest> get_node_info_server0(CXX_TEST_INTERFACE(0), *allocate_static_callback(handle_get_node_info_request0));
+static StaticCallbackWrapper<uavcan_protocol_GetNodeInfoRequest> static_callback_wrapper0(handle_get_node_info_request0);
+Canard::Server<uavcan_protocol_GetNodeInfoRequest> get_node_info_server0(CXX_TEST_INTERFACE(0), *static_callback_wrapper0.cb);
 
 void handle_get_node_info_request1(const CanardRxTransfer &transfer, const uavcan_protocol_GetNodeInfoRequest &req);
-Canard::Server<uavcan_protocol_GetNodeInfoRequest> get_node_info_server1(CXX_TEST_INTERFACE(1), *allocate_static_callback(handle_get_node_info_request1));
+static StaticCallbackWrapper<uavcan_protocol_GetNodeInfoRequest> static_callback_wrapper1(handle_get_node_info_request1);
+Canard::Server<uavcan_protocol_GetNodeInfoRequest> get_node_info_server1(CXX_TEST_INTERFACE(1), *static_callback_wrapper1.cb);
 
 void handle_get_node_info_request0(const CanardRxTransfer &transfer, const uavcan_protocol_GetNodeInfoRequest &req) {
     uavcan_protocol_GetNodeInfoResponse res {};
@@ -197,11 +225,13 @@ void handle_get_node_info_request1(const CanardRxTransfer &transfer, const uavca
 TEST(StaticCoreTest, test_service) {
     // create client for service uavcan_protocol_GetNodeInfo on interface CoreTestInterface
     // with response callback function handle_get_node_info_response
-    Client<uavcan_protocol_GetNodeInfoResponse> get_node_info_client0(CXX_TEST_INTERFACE(0), *allocate_static_callback(handle_get_node_info_response));
+    auto static_cb0 = allocate_static_callback(handle_get_node_info_response);
+    Client<uavcan_protocol_GetNodeInfoResponse> get_node_info_client0(CXX_TEST_INTERFACE(0), *static_cb0);
 
     // create client for service uavcan_protocol_GetNodeInfo on different interface instance CoreTestInterface
     // with response callback function handle_get_node_info_response
-    Client<uavcan_protocol_GetNodeInfoResponse> get_node_info_client1(CXX_TEST_INTERFACE(1), *allocate_static_callback(handle_get_node_info_response));
+    auto static_cb1 = allocate_static_callback(handle_get_node_info_response);
+    Client<uavcan_protocol_GetNodeInfoResponse> get_node_info_client1(CXX_TEST_INTERFACE(1), *static_cb1);
 
     // set node id for interfaces
     CXX_TEST_INTERFACE(0).set_node_id(1);
@@ -220,6 +250,11 @@ TEST(StaticCoreTest, test_service) {
     ASSERT_TRUE(get_node_info_client1.request(1, req));
     // check if response was received
     ASSERT_TRUE(handle_get_node_info_response_called);
+    // free memory
+    delete static_cb0;
+    delete static_cb1;
+    CXX_TEST_INTERFACE(0).free();
+    CXX_TEST_INTERFACE(1).free();
 }
 
 // test single server multiple clients
@@ -348,6 +383,10 @@ TEST(StaticCoreTest, test_multiple_clients) {
     EXPECT_TRUE(client1[1].get_node_info_client.request(1, req));
     ASSERT_EQ(TestClient1::call_counts, 2);
     ASSERT_EQ(TestServer0::call_counts, 2);
+
+    // free memory
+    CXX_TEST_INTERFACE(0).free();
+    CXX_TEST_INTERFACE(1).free();
 }
 
 } // namespace StaticCoreTest
