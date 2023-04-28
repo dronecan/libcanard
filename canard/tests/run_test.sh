@@ -15,10 +15,12 @@ function run_cmake() {
     mkdir build
     # echo with highlighted text
     echo -e "\e[1;32mRunning cmake with options: $*\e[0m"
-    cmake $* -S . -B build || exit 1
+    cmake $* -DMEMORYCHECK_COMMAND_OPTIONS="--error-exitcode=1 --leak-check=full --track-origins=yes" -S . -B build || exit 1
     pushd build/
     make || exit 1
-    ctest -T memcheck || exit 1
+    if ! ctest -D ExperimentalMemCheck --output-on-failure; then
+        exit 1
+    fi
     # also run the coverage if coverage is enabled
     if [[ $* == *-DCANARD_ENABLE_COVERAGE=1* ]]; then
         echo -e "\e[1;32mRunning coverage test\e[0m"
