@@ -19,7 +19,7 @@ FetchContent_MakeAvailable(googletest)
 
 add_executable(${PROJECT_NAME}_tests
     # common_test.h
-    # test_crc.cpp
+    test_crc.cpp
     test_float16.cpp
     test_init.cpp
     # test_memory_allocator.cpp
@@ -27,11 +27,14 @@ add_executable(${PROJECT_NAME}_tests
     # test_scalar_encoding.cpp
 )
 
-# add source properties
-set_source_files_properties(${tests_src} PROPERTIES COMPILE_FLAGS "${CANARD_CXX_FLAGS}")
-set_source_files_properties(../canard.c PROPERTIES COMPILE_FLAGS "${CANARD_C_FLAGS}")
+set(CANARD_CXX_FLAGS "${CANARD_CXX_FLAGS} -DCANARD_INTERNAL=''")
+set(CANARD_C_FLAGS   "${CANARD_C_FLAGS}   -DCANARD_INTERNAL=''")
 
-target_link_libraries(${PROJECT_NAME}_tests PRIVATE GTest::gtest_main canard_tgt pthread)
+# add source properties
+set_target_properties(${PROJECT_NAME}_tests PROPERTIES COMPILE_FLAGS "${CANARD_CXX_FLAGS}")
+set_source_files_properties(canard_tgt PROPERTIES COMPILE_FLAGS "${CANARD_C_FLAGS}")
+
+target_link_libraries(${PROJECT_NAME}_tests PRIVATE GTest::gtest_main canard_tgt canard_private_tgt pthread)
 if (CANARD_LINK_FLAGS)
     set_target_properties(test_canard PROPERTIES LINK_FLAGS "${CANARD_LINK_FLAGS}")
 endif()
