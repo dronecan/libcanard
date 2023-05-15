@@ -21,7 +21,7 @@ jobs:
         uname -a
         sudo dpkg --add-architecture i386
         sudo apt-get update
-        sudo apt-get install gcc-multilib g++-multilib lcov ccache valgrind libc6-dbg:i386
+        sudo apt-get install gcc-multilib g++-multilib lcov ccache valgrind libgcc-s1:i386 libc6-dbg:i386
         sudo pip install empy pydronecan
     - name: Submodule update
       run: |
