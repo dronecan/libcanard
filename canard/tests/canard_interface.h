@@ -73,7 +73,7 @@ private:
 
 class CanardTestInterface : public CanardInterface {
 public:
-    CanardTestInterface(int index) :
+    CanardTestInterface(uint8_t index) :
     CanardInterface(index) {
         CanardTestNetwork::get_network().ifaces[index] = this;
     }

@@ -96,8 +96,13 @@ public:
     /// @param canfd true if CAN FD is to be used
     /// @return true if the request was put into the queue successfully
     bool request(uint8_t destination_node_id, typename rsptype::cxx_iface::reqtype& msg, bool canfd) {
+#if !CANARD_ENABLE_CANFD
+        if (canfd) {
+            return false;
+        }
+#endif
         // encode the message
-        uint16_t len = rsptype::cxx_iface::req_encode(&msg, req_buf 
+        uint32_t len = rsptype::cxx_iface::req_encode(&msg, req_buf 
 #if CANARD_ENABLE_CANFD
         , !canfd
 #elif CANARD_ENABLE_TAO_OPTION

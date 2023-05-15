@@ -60,7 +60,7 @@ public:
     HandlerList(const HandlerList&) = delete;
 
     // destructor, remove the entry from the singly-linked list
-    ~HandlerList() NOINLINE_FUNC {
+    virtual ~HandlerList() NOINLINE_FUNC {
 #ifdef WITH_SEMAPHORE
         WITH_SEMAPHORE(sem[index]);
 #endif

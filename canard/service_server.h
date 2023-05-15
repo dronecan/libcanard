@@ -63,7 +63,7 @@ public:
     /// @return true if the response was put into the queue successfully
     bool respond(const CanardRxTransfer& transfer, typename reqtype::cxx_iface::rsptype& msg) {
         // encode the message
-        uint16_t len = reqtype::cxx_iface::rsp_encode(&msg, rsp_buf
+        uint32_t len = reqtype::cxx_iface::rsp_encode(&msg, rsp_buf
 #if CANARD_ENABLE_CANFD
         , !transfer.canfd
 #elif CANARD_ENABLE_TAO_OPTION
