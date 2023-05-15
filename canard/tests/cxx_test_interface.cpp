@@ -3,10 +3,11 @@
 using namespace Canard;
 
 void TestNetwork::route_msg(CoreTestInterface *send_iface, uint8_t source_node_id, uint8_t destination_node_id, Transfer transfer) {
+    (void)destination_node_id;
     // prepare CanardRxTransfer
     CanardRxTransfer rx_transfer {};
     rx_transfer.data_type_id = transfer.data_type_id;
-    rx_transfer.payload_len = transfer.payload_len; 
+    rx_transfer.payload_len = (uint16_t)transfer.payload_len; 
     rx_transfer.payload_head = (uint8_t*)transfer.payload;
     rx_transfer.transfer_id = *transfer.inout_transfer_id;
     rx_transfer.source_node_id = source_node_id;

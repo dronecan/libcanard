@@ -26,6 +26,10 @@
 #include <canard.h>
 #include "handler_list.h"
 
+#ifndef CANARD_IFACE_ALL
+#define CANARD_IFACE_ALL 0xFF
+#endif
+
 namespace Canard {
 
 struct Transfer {
@@ -35,7 +39,7 @@ struct Transfer {
     uint8_t* inout_transfer_id; ///< Transfer ID reference
     uint8_t priority; ///< Priority of the transfer
     const void* payload; ///< Pointer to the payload
-    uint16_t payload_len; ///< Length of the payload
+    uint32_t payload_len; ///< Length of the payload
     uint8_t iface_mask; ///< Bitmask of interfaces to send the transfer on
     bool canfd; ///< true if the transfer is CAN FD
     uint32_t timeout_ms; ///< timeout in ms
@@ -51,6 +55,9 @@ public:
         index(_index),
         canfd(_canfd)
     {}
+
+    /// @brief Interface destructor
+    virtual ~Interface() {}
 
     /// @brief broadcast message
     /// @param bcast_transfer transfer to broadcast

@@ -5,7 +5,7 @@
 #include <gtest/gtest.h>
 #include <canard/service_server.h>
 #include <canard/service_client.h>
-#include <cxx_test_interface.h>
+#include "cxx_test_interface.h"
 
 using namespace Canard;
 
@@ -155,7 +155,9 @@ TEST(StaticCoreTest, test_multiple_subscribers) {
 
 // test single server single client
 bool handle_get_node_info_response_called = false;
+void handle_get_node_info_response(const CanardRxTransfer &transfer, const uavcan_protocol_GetNodeInfoResponse &res);
 void handle_get_node_info_response(const CanardRxTransfer &transfer, const uavcan_protocol_GetNodeInfoResponse &res) {
+    (void)transfer;
     ASSERT_EQ(res.status.uptime_sec, 1);
     ASSERT_EQ(res.status.health, 2);
     ASSERT_EQ(res.status.mode, 3);
@@ -191,6 +193,7 @@ static StaticCallbackWrapper<uavcan_protocol_GetNodeInfoRequest> static_callback
 Canard::Server<uavcan_protocol_GetNodeInfoRequest> get_node_info_server1(CXX_TEST_INTERFACE(1), *static_callback_wrapper1.cb);
 
 void handle_get_node_info_request0(const CanardRxTransfer &transfer, const uavcan_protocol_GetNodeInfoRequest &req) {
+    (void)req;
     uavcan_protocol_GetNodeInfoResponse res {};
     res.status.uptime_sec = 1;
     res.status.health = 2;
@@ -207,6 +210,7 @@ void handle_get_node_info_request0(const CanardRxTransfer &transfer, const uavca
 }
 
 void handle_get_node_info_request1(const CanardRxTransfer &transfer, const uavcan_protocol_GetNodeInfoRequest &req) {
+    (void)req;
     uavcan_protocol_GetNodeInfoResponse res {};
     res.status.uptime_sec = 1;
     res.status.health = 2;
@@ -262,6 +266,7 @@ public:
     TestClient0() {}
     static int call_counts;
     void handle_get_node_info_response(const CanardRxTransfer &transfer, const uavcan_protocol_GetNodeInfoResponse &res) {
+        (void)transfer;
         ASSERT_EQ(res.status.uptime_sec, 1);
         ASSERT_EQ(res.status.health, 2);
         ASSERT_EQ(res.status.mode, 3);
@@ -285,6 +290,7 @@ public:
     TestClient1() {}
     static int call_counts;
     void handle_get_node_info_response(const CanardRxTransfer &transfer, const uavcan_protocol_GetNodeInfoResponse &res) {
+        (void)transfer;
         ASSERT_EQ(res.status.uptime_sec, 1);
         ASSERT_EQ(res.status.health, 2);
         ASSERT_EQ(res.status.mode, 3);
@@ -310,6 +316,7 @@ public:
     TestServer0() {}
     static int call_counts;
     void handle_get_node_info_request(const CanardRxTransfer &transfer, const uavcan_protocol_GetNodeInfoRequest &req) {
+        (void)req;
         call_counts++;
         uavcan_protocol_GetNodeInfoResponse res {};
         res.status.uptime_sec = 1;
@@ -334,6 +341,7 @@ public:
     TestServer1() {}
     static int call_counts;
     void handle_get_node_info_request(const CanardRxTransfer &transfer, const uavcan_protocol_GetNodeInfoRequest &req) {
+        (void)req;
         call_counts++;
         uavcan_protocol_GetNodeInfoResponse res {};
         res.status.uptime_sec = 1;

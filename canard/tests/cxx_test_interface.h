@@ -24,7 +24,7 @@ private:
 
 class CoreTestInterface : public Interface {
 public:
-    CoreTestInterface(int index) :
+    CoreTestInterface(uint8_t index) :
     Interface(index) {
         TestNetwork::get_network().ifaces[index] = this;
     }
@@ -33,6 +33,8 @@ public:
     CoreTestInterface(const CoreTestInterface&) = delete;
     CoreTestInterface& operator=(const CoreTestInterface&) = delete;
     CoreTestInterface() = delete;
+
+    virtual ~CoreTestInterface() {}
 
     /// @brief broadcast message to all listeners on Interface
     /// @param bc_transfer
