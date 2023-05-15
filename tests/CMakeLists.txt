@@ -27,25 +27,14 @@ add_executable(${PROJECT_NAME}_tests
     # test_scalar_encoding.cpp
 )
 
-set(CANARD_CXX_FLAGS "${CANARD_CXX_FLAGS} -DCANARD_INTERNAL=''")
-set(CANARD_C_FLAGS   "${CANARD_C_FLAGS}   -DCANARD_INTERNAL=''")
-
 # add source properties
 set_target_properties(${PROJECT_NAME}_tests PROPERTIES COMPILE_FLAGS "${CANARD_CXX_FLAGS}")
 set_source_files_properties(canard_tgt PROPERTIES COMPILE_FLAGS "${CANARD_C_FLAGS}")
 
 target_link_libraries(${PROJECT_NAME}_tests PRIVATE GTest::gtest_main canard_tgt canard_private_tgt pthread)
 if (CANARD_LINK_FLAGS)
-    set_target_properties(test_canard PROPERTIES LINK_FLAGS "${CANARD_LINK_FLAGS}")
+    set_target_properties(${PROJECT_NAME}_tests PROPERTIES LINK_FLAGS "${CANARD_LINK_FLAGS}")
 endif()
 
 include(GoogleTest)
 gtest_discover_tests(${PROJECT_NAME}_tests)
-
-
-# TODO get demo to build standalone
-# add_executable(${PROJECT_NAME}_demo demo.c)
-# target_link_libraries(${PROJECT_NAME}_tests PRIVATE GTest::gtest_main canard_tgt)
-
-# target_compile_definitions(demo
-#                            PUBLIC GIT_HASH=0x${GIT_HASH})
