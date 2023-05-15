@@ -43,6 +43,47 @@ extern "C" {
 # define CANARD_INTERNAL static
 #endif
 
+/*
+ * Some MCUs like TMS320 have 16-bits addressing, so
+ * 1.   (uint8_t) same (uint16_t)
+ * 2.   sizeof(float) is 2
+ * 3.   union not same like STM32, because type uint8_t does not exist in hardware
+ *
+ *      union
+ *      {
+ *          uint64_t u8;
+ *          uint64_t u16;
+ *          uint64_t u32;
+ *          uint64_t u64;
+ *          uint8_t bytes[8];
+ *      } storage;
+ *
+ *      address:|   bytes:      |   u64:            |   u32:            |   u16:    |   u8:
+ *      0x00    |   bytes[0]    |   (u64    )&0xFF  |   (u32    )&0xFF  |   u16     |   u8
+ *      0x01    |   bytes[1]    |   (u64>>16)&0xFF  |   (u32>>16)&0xFF  |
+ *      0x02    |   bytes[2]    |   (u64>>32)&0xFF  |
+ *      0x03    |   bytes[3]    |   (u64>>48)&0xFF  |
+ *      0x04    |   bytes[4]    |
+ *      0x05    |   bytes[5]    |
+ *      0x06    |   bytes[6]    |
+ *      0x07    |   bytes[7]    |
+ *
+ */
+#ifndef WORD_ADDRESSING_IS_16BITS
+#if defined(__TI_COMPILER_VERSION__) || defined(__TMS320C2000__)
+#define WORD_ADDRESSING_IS_16BITS 1
+#else
+#define WORD_ADDRESSING_IS_16BITS 0
+#endif
+#endif
+
+#if WORD_ADDRESSING_IS_16BITS
+# define uint8_t               uint16_t
+# define int8_t                int16_t
+# define CANARD_SIZEOF_FLOAT   2
+#else
+# define CANARD_SIZEOF_FLOAT   4
+#endif
 
 CANARD_INTERNAL CanardRxState* traverseRxStates(CanardInstance* ins,
                                                 uint32_t transfer_descriptor);

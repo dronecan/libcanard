@@ -811,6 +811,20 @@ int16_t canardDecodeScalar(const CanardRxTransfer* transfer,
     {
         swapByteOrder(&storage.bytes[0], std_byte_length);
     }
+	
+#if WORD_ADDRESSING_IS_16BITS
+    /*
+     * Copying 8-bit array to 64-bit storage
+     */
+    {
+        uint64_t temp = 0;
+        for(uint16_t i=0; i<std_byte_length; i++)
+        {
+            temp |= (((uint64_t)storage.bytes[i] & 0xFFU) << (8*i));
+        }
+        storage.u64 = temp;
+    }
+#endif
 
     /*
      * Extending the sign bit if needed. I miss templates.
@@ -941,6 +955,19 @@ void canardEncodeScalar(void* destination,
     }
 
     CANARD_ASSERT(std_byte_length > 0);
+	
+#if WORD_ADDRESSING_IS_16BITS
+    /*
+     * Copying 64-bit storage to 8-bit array
+     */
+    {
+        uint64_t temp = storage.u64;
+        for(uint16_t i=0; i<std_byte_length; i++)
+        {
+            storage.bytes[i] = (temp >> (8*i)) & 0xFFU;
+        }
+    }
+#endif
 
     if (isBigEndian())
     {
@@ -988,7 +1015,7 @@ CanardPoolAllocatorStatistics canardGetPoolAllocatorStatistics(CanardInstance* i
 
 uint16_t canardConvertNativeFloatToFloat16(float value)
 {
-    CANARD_ASSERT(sizeof(float) == 4);
+    CANARD_ASSERT(sizeof(float) == CANARD_SIZEOF_FLOAT);
 
     union FP32
     {
@@ -1032,7 +1059,7 @@ uint16_t canardConvertNativeFloatToFloat16(float value)
 
 float canardConvertFloat16ToNativeFloat(uint16_t value)
 {
-    CANARD_ASSERT(sizeof(float) == 4);
+    CANARD_ASSERT(sizeof(float) == CANARD_SIZEOF_FLOAT);
 
     union FP32
     {
@@ -1629,11 +1656,23 @@ void copyBitArray(const uint8_t* src, uint32_t src_offset, uint32_t src_len,
         const uint8_t max_offset = MAX(src_bit_offset, dst_bit_offset);
         const uint32_t copy_bits = (uint32_t)MIN(last_bit - src_offset, 8U - max_offset);
 
+#if WORD_ADDRESSING_IS_16BITS
+        /*
+         * (uint8_t) same as (uint16_t)
+         * Mask 0xFF must be used
+         */
+        const uint8_t write_mask = (uint8_t)((uint8_t)((0xFF00U >> copy_bits)&0xFF) >> dst_bit_offset)&0xFF;
+        const uint8_t src_data = (uint8_t)(((uint32_t)src[src_offset / 8U] << src_bit_offset) >> dst_bit_offset)&0xFF;
+
+        dst[dst_offset / 8U] =
+            (uint8_t)(((uint32_t)dst[dst_offset / 8U] & (uint32_t)~write_mask) | (uint32_t)(src_data & write_mask))&0xFF;
+#else
         const uint8_t write_mask = (uint8_t)((uint8_t)(0xFF00U >> copy_bits) >> dst_bit_offset);
         const uint8_t src_data = (uint8_t)(((uint32_t)src[src_offset / 8U] << src_bit_offset) >> dst_bit_offset);
 
         dst[dst_offset / 8U] =
             (uint8_t)(((uint32_t)dst[dst_offset / 8U] & (uint32_t)~write_mask) | (uint32_t)(src_data & write_mask));
+#endif
 
         src_offset += copy_bits;
         dst_offset += copy_bits;
@@ -1750,8 +1789,16 @@ CANARD_INTERNAL bool isBigEndian(void)
 #else
     union
     {
+#if WORD_ADDRESSING_IS_16BITS
+        /*
+         * with 16-bit memory addressing u8b[0]=u16a, u8b[1]=NOTHING
+         */
+        uint32_t a;
+        uint16_t b[2];
+#else
         uint16_t a;
         uint8_t b[2];
+#endif
     } u;
     u.a = 1;
     return u.b[1] == 1;                             // Some don't...
