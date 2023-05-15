@@ -26,25 +26,9 @@ jobs:
     - name: Submodule update
       run: |
         git submodule update --init --recursive
-    - name: Clone required repositories into tests folder
-      run: |
-        cd ${{github.workspace}}/tests
-        git clone --depth 1 --branch v1.13.0 https://github.com/google/googletest
     - name: Run Tests for canard_c library
-      working-directory: ${{github.workspace}}/tests
+      working-directory: ${{github.workspace}}
       run: ./run_test.sh
-    - name: Clone required repositories into canard/tests folder
-      run: |
-            cd ${{github.workspace}}/canard/tests
-            git clone --depth 1 https://github.com/DroneCAN/DSDL
-            git clone --depth 1 https://github.com/dronecan/dronecan_dsdlc
-            git clone --depth 1 --branch v1.13.0 https://github.com/google/googletest
-    - name: Run Tests for canard_cxx library
-      working-directory: ${{github.workspace}}/canard/tests
-      run: ./run_test.sh
-    - name: combine coverage results
-      working-directory: ${{github.workspace}}/tests
-      run: lcov --add-tracefile coverage.info --add-tracefile ../canard/tests/coverage.info --output-file coverage.info
     - name: show coverage results
-      working-directory: ${{github.workspace}}/tests
+      working-directory: ${{github.workspace}}
       run: lcov --list coverage.info
