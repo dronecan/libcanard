@@ -34,7 +34,7 @@ function run_cmake() {
     popd
 }
 
-OPTIONS=( CMAKE_32BIT CANARD_ENABLE_CANFD CANARD_ENABLE_DEADLINE CANARD_MULTI_IFACE )
+OPTIONS=( CANARD_ENABLE_CANFD CANARD_ENABLE_DEADLINE CANARD_MULTI_IFACE )
 
 # if no argument is given, run all possible combinations
 if [ $# -eq 0 ]; then
@@ -47,7 +47,7 @@ if [ $# -eq 0 ]; then
                 OPTS="$OPTS -D${OPTIONS[j]}=1"
             fi
         done
-        run_cmake -DCANARD_ENABLE_COVERAGE=1 $OPTS
+        run_cmake -DBUILD_TESTING=1 -DCANARD_ENABLE_COVERAGE=1 $OPTS
     done
 else
     run_cmake $*
