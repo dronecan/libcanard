@@ -49,7 +49,6 @@ public:
 
     uint8_t get_node_id() const override { return canard.node_id; }
 
-protected:
     CanardInstance canard {};
 };
 
