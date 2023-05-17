@@ -687,6 +687,41 @@ void canardCleanupStaleTransfers(CanardInstance* ins, uint64_t current_time_usec
             state = canardRxFromIdx(&ins->allocator, state->next);
         }
     }
+
+#if CANARD_MULTI_IFACE || CANARD_ENABLE_DEADLINE
+    // remove stale TX transfers
+    CanardTxQueueItem* prev_item = ins->tx_queue, * item = ins->tx_queue;
+    while (item != NULL)
+    {
+#if CANARD_MULTI_IFACE && CANARD_ENABLE_DEADLINE
+        if ((current_time_usec > item->frame.deadline_usec) || item->frame.iface_mask == 0)
+#elif CANARD_MULTI_IFACE
+        if (item->frame.iface_mask == 0)
+#else
+        if (current_time_usec > item->frame.deadline_usec)
+#endif
+        {
+            if (item == ins->tx_queue)
+            {
+                ins->tx_queue = ins->tx_queue->next;
+                freeBlock(&ins->allocator, item);
+                item = ins->tx_queue;
+                prev_item = item;
+            }
+            else
+            {
+                prev_item->next = item->next;
+                freeBlock(&ins->allocator, item);
+                item = prev_item->next;
+            }
+        }
+        else
+        {
+            prev_item = item;
+            item = item->next;
+        }
+    }
+#endif
 }
 
 int16_t canardDecodeScalar(const CanardRxTransfer* transfer,
