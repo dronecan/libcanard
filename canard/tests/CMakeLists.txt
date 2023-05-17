@@ -21,6 +21,20 @@ execute_process(COMMAND python3 ${dronecan_dsdlc_SOURCE_DIR}/dronecan_dsdlc.py
     ${dsdl_SOURCE_DIR}/com
     )
 
+if (CANARD_ENABLE_DEADLINE)
+    add_definitions(-DCANARD_ENABLE_DEADLINE=1)
+endif()
+
+# check arguments for 32-bit build
+if (CMAKE_32BIT)
+     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -m32")
+     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -m32")
+endif()
+
+if (CANARD_ENABLE_CANFD)
+    add_definitions(-DCANARD_ENABLE_CANFD=1)
+endif()
+
 # generate dsdl messages
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/dsdlc_generated/include)
 

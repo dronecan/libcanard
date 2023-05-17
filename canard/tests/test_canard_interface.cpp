@@ -258,4 +258,64 @@ TEST(StaticCanardTest, test_multiple_clients) {
     CANARD_TEST_INTERFACE(1).free();
 }
 
+static uint8_t test_var = 0;
+static void test_node_status_server_callback(const CanardRxTransfer &transfer, const uavcan_protocol_NodeStatus &req) {
+    test_var++;
+}
+
+#if CANARD_ENABLE_DEADLINE
+TEST(StaticCanardTest, test_CleanupStaleTransfers)
+{
+    CANARD_TEST_INTERFACE_DEFINE(0);
+    CANARD_TEST_INTERFACE_DEFINE(1);
+
+    uavcan_protocol_NodeStatus node_status {};
+    node_status.uptime_sec = 1;
+    node_status.health = 2;
+    node_status.mode = 3;
+    node_status.sub_mode = 4;
+    node_status.vendor_specific_status_code = 5;
+
+    uint8_t buffer0[2048] {};
+    uint8_t buffer1[2048] {};
+    CANARD_TEST_INTERFACE(0).init(buffer0, sizeof(buffer0));
+    CANARD_TEST_INTERFACE(1).init(buffer1, sizeof(buffer1));
+
+    // set node id
+    CANARD_TEST_INTERFACE(0).set_node_id(1);
+    CANARD_TEST_INTERFACE(1).set_node_id(2);
+
+    Canard::Publisher<uavcan_protocol_NodeStatus> node_status_pub_0{CANARD_TEST_INTERFACE(0)};
+    auto static_test_cb = Canard::allocate_static_callback(test_node_status_server_callback);
+    Canard::Subscriber<uavcan_protocol_NodeStatus> node_status_sub_1{*static_test_cb, 1};
+
+    node_status_pub_0.set_timeout_ms(1);
+    for (int i = 0; i < 20; i++) {
+        if (i % 2) {
+            node_status_pub_0.set_timeout_ms(10);
+        } else {
+            node_status_pub_0.set_timeout_ms(1);
+        }
+        node_status_pub_0.broadcast(node_status);
+    }
+    // sleep for 2ms
+    usleep(2000);
+    // current time in us
+    timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    uint64_t timestamp = (ts.tv_sec * 1000000ULL) + (ts.tv_nsec / 1000ULL);
+    // cleanup stale transfers
+    canardCleanupStaleTransfers(&CANARD_TEST_INTERFACE(0).canard, timestamp);
+    // update tx
+    CANARD_TEST_INTERFACE(0).update_tx(timestamp);
+
+    // 10 messages should have been dropped due to timeout
+    ASSERT_EQ(test_var, 10);
+
+    CANARD_TEST_INTERFACE(0).free();
+    CANARD_TEST_INTERFACE(1).free();
+    deallocate(static_test_cb);
+}
+#endif
+
 } // namespace StaticCanardTest

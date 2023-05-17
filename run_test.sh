@@ -34,7 +34,7 @@ function run_cmake() {
     popd
 }
 
-OPTIONS=( CANARD_ENABLE_CANFD CANARD_ENABLE_DEADLINE CANARD_MULTI_IFACE )
+OPTIONS=( CMAKE_32BIT CANARD_ENABLE_CANFD CANARD_ENABLE_DEADLINE CANARD_MULTI_IFACE )
 
 # if no argument is given, run all possible combinations
 if [ $# -eq 0 ]; then
