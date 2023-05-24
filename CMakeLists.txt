@@ -5,33 +5,6 @@
 cmake_minimum_required (VERSION 3.22.1)
 project(Canard)
 
-# For python, follow this: https://stackoverflow.com/questions/61123927/how-to-add-a-directory-to-pythonpath-from-cmake
-# execute process to generate libcanard headers using dronecan_dsdlc/dronecan_dsdlc.py
-#execute_process(COMMAND python3 dronecan_dsdlc/dronecan_dsdlc.py
-#    -O ${CMAKE_CURRENT_BINARY_DIR}/dsdlc_generated
-#    ${MODULES_DIR}/DSDL/uavcan
-#    ${MODULES_DIR}/DSDL/dronecan
-#    ${MODULES_DIR}/DSDL/ardupilot
-#    ${MODULES_DIR}/DSDL/com
-#    )
-
-# generate dsdl messages
-#include_directories(${CMAKE_CURRENT_BINARY_DIR}/dsdlc_generated/include)
-
-# add local directory to include path
-# include_directories(${CMAKE_CURRENT_SOURCE_DIR})
-# include_directories(${CMAKE_CURRENT_SOURCE_DIR}/modules/libcanard/)
-
-# add libcanard source files
-#file(GLOB LIBCANARD_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/modules/libcanard/*.c)
-#list(APPEND SRC_FILES ${LIBCANARD_SOURCES})
-
-# glob all generated dsdlc files
-#file(GLOB DSDL_GENERATED_SOURCES ${CMAKE_CURRENT_BINARY_DIR}/dsdlc_generated/src/*.c*)
-
-# append DSDL_GENERATED_SOURCES_C to SRC_FILES
-#list(APPEND SRC_FILES ${DSDL_GENERATED_SOURCES})
-
 # check arguments for 32-bit build
 option(CMAKE_32BIT "Enable 32 bit build" OFF)
 
@@ -103,6 +76,21 @@ target_link_libraries(canard_private_tgt PUBLIC canard_tgt)
 include(CTest)
 if(${BUILD_TESTING})
   add_definitions(-DCANARD_INTERNAL=)
+
+  include(FetchContent)
+  FetchContent_Declare(
+    googletest
+    GIT_REPOSITORY https://github.com/google/googletest.git
+    GIT_TAG        v1.13.0
+  )
+  set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+
+  set(BUILD_GTEST ON CACHE BOOL "" FORCE)
+  # disable GMOCK
+  set(BUILD_GMOCK OFF CACHE BOOL "" FORCE)
+
+  FetchContent_MakeAvailable(googletest)
+
   add_subdirectory(tests)
   add_subdirectory(canard/tests)
   if (CANARD_ENABLE_COVERAGE)
