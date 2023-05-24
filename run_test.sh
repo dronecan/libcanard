@@ -8,12 +8,12 @@ function run_cmake() {
     # echo with highlighted text
     echo -e "\e[1;32mRunning cmake with options: $*\e[0m"
     cmake $* -DMEMORYCHECK_COMMAND_OPTIONS="--error-exitcode=1 --leak-check=full --track-origins=yes" -S . -B build || exit 1
-    pushd build/
-    make || exit 1
-
-    if ! ctest -D ExperimentalMemCheck --output-on-failure; then
+    cmake --build build --parallel `nproc`
+    if ! ctest --test-dir build -D ExperimentalMemCheck --output-on-failure; then
         exit 1
     fi
+
+    pushd build/
     # ctest -T memcheck || exit 1
     # also run the coverage if coverage is enabled
     if [[ $* == *-DCANARD_ENABLE_COVERAGE=1* ]]; then
