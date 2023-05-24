@@ -18,13 +18,13 @@ set(BUILD_GMOCK OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
 add_executable(${PROJECT_NAME}_tests
-    # common_test.h
+    common_test.h
     test_crc.cpp
     test_float16.cpp
     test_init.cpp
-    # test_memory_allocator.cpp
+    test_memory_allocator.cpp
     test_rxerr.cpp
-    # test_scalar_encoding.cpp
+    test_scalar_encoding.cpp
 )
 
 # add source properties
