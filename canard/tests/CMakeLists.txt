@@ -63,5 +63,4 @@ include(GoogleTest)
 gtest_discover_tests(${PROJECT_NAME}_test_cf)
 
 target_link_libraries(${PROJECT_NAME}_test_canard GTest::gtest_main canard_tgt canard_private_tgt pthread)
-include(GoogleTest)
 gtest_discover_tests(${PROJECT_NAME}_test_canard)
