@@ -51,3 +51,6 @@ dsdlc_generated/
 
 # Pycache
 __pycache__/
+
+# Coverage report
+coverage.info
