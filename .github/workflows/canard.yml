@@ -29,6 +29,9 @@ jobs:
     - name: Run Tests for canard_c library
       working-directory: ${{github.workspace}}
       run: ./run_test.sh
+    - name: build SimpleNode
+      working-directory: ${{github.workspace}}/examples/SimpleNode
+      run: make
     - name: show coverage results
       working-directory: ${{github.workspace}}
       run: lcov --list coverage.info
