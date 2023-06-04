@@ -184,6 +184,11 @@ static struct {
  */
 static void handle_DNA_Allocation(CanardInstance *ins, CanardRxTransfer *transfer)
 {
+    if (canardGetLocalNodeID(&canard) != CANARD_BROADCAST_NODE_ID) {
+        // already allocated
+        return;
+    }
+
     // Rule C - updating the randomized time interval
     DNA.send_next_node_id_allocation_request_at_ms =
         millis32() + UAVCAN_PROTOCOL_DYNAMIC_NODE_ID_ALLOCATION_MIN_REQUEST_PERIOD_MS +
