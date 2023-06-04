@@ -8,8 +8,11 @@
 
   Example usage: ./simple_node vcan0
 */
+/*
+ This example application is distributed under the terms of CC0 (public domain dedication).
+ More info: https://creativecommons.org/publicdomain/zero/1.0/
+*/
 
-// This is needed to enable necessary declarations in sys/
 #ifndef _GNU_SOURCE
 # define _GNU_SOURCE
 #endif
@@ -113,11 +116,14 @@ static void handle_GetNodeInfo(CanardInstance *ins, CanardRxTransfer *transfer)
 static void onTransferReceived(CanardInstance *ins, CanardRxTransfer *transfer)
 {
     // switch on data type ID to pass to the right handler function
-    switch (transfer->data_type_id) {
-    case UAVCAN_PROTOCOL_GETNODEINFO_ID: {
-        handle_GetNodeInfo(ins, transfer);
-        break;
-    }
+    if (transfer->transfer_type == CanardTransferTypeRequest) {
+        // check if we want to handle a specific service request
+        switch (transfer->data_type_id) {
+        case UAVCAN_PROTOCOL_GETNODEINFO_ID: {
+            handle_GetNodeInfo(ins, transfer);
+            break;
+        }
+        }
     }
 }
 
@@ -137,17 +143,24 @@ static bool shouldAcceptTransfer(const CanardInstance *ins,
                                  CanardTransferType transfer_type,
                                  uint8_t source_node_id)
 {
-    switch (data_type_id) {
-    case UAVCAN_PROTOCOL_GETNODEINFO_ID: {
-        *out_data_type_signature = UAVCAN_PROTOCOL_GETNODEINFO_REQUEST_SIGNATURE;
-        return true;
-    }
+    if (transfer_type == CanardTransferTypeRequest) {
+        // check if we want to handle a specific service request
+        switch (data_type_id) {
+        case UAVCAN_PROTOCOL_GETNODEINFO_ID: {
+            *out_data_type_signature = UAVCAN_PROTOCOL_GETNODEINFO_REQUEST_SIGNATURE;
+            return true;
+        }
+        }
     }
     // we don't want any other messages
     return false;
 }
 
 
+/*
+  send the 1Hz NodeStatus message. This is what allows a node to show
+  up in the DroneCAN GUI tool and in the flight controller logs
+ */
 static void send_NodeStatus(void)
 {
     uint8_t buffer[UAVCAN_PROTOCOL_GETNODEINFO_RESPONSE_MAX_SIZE];
@@ -227,7 +240,9 @@ static void processTxRxOnce(SocketCANInstance *socketcan, int32_t timeout_msec)
     }
 }
 
-
+/*
+  main program entry point
+ */
 int main(int argc, char** argv)
 {
     if (argc < 2) {

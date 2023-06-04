@@ -16,3 +16,6 @@ jobs:
     - name: build SimpleNode
       working-directory: ${{github.workspace}}/examples/SimpleNode
       run: make
+    - name: build ESCNode
+      working-directory: ${{github.workspace}}/examples/ESCNode
+      run: make
