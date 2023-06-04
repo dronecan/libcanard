@@ -508,6 +508,8 @@ int main(int argc, char** argv)
 
     if (MY_NODE_ID > 0) {
         canardSetLocalNodeID(&canard, MY_NODE_ID);
+    } else {
+        printf("Waiting for DNA node allocation\n");
     }
 
     /*
