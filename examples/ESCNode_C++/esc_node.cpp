@@ -125,6 +125,14 @@ private:
     Canard::ObjCallback<ESCNode, uavcan_protocol_GetNodeInfoRequest> node_info_req_cb{this, &ESCNode::handle_GetNodeInfo};
     Canard::Server<uavcan_protocol_GetNodeInfoRequest> node_info_server{canard_iface, node_info_req_cb};
 
+    // parameter server
+    void handle_param_GetSet(const CanardRxTransfer& transfer, const uavcan_protocol_param_GetSetRequest& req);
+    Canard::ObjCallback<ESCNode, uavcan_protocol_param_GetSetRequest> param_get_set_req_cb{this, &ESCNode::handle_param_GetSet};
+    Canard::Server<uavcan_protocol_param_GetSetRequest> param_server{canard_iface, param_get_set_req_cb};
+    void handle_param_ExecuteOpcode(const CanardRxTransfer& transfer, const uavcan_protocol_param_ExecuteOpcodeRequest& req);
+    Canard::ObjCallback<ESCNode, uavcan_protocol_param_ExecuteOpcodeRequest> param_executeopcode_req_cb{this, &ESCNode::handle_param_ExecuteOpcode};
+    Canard::Server<uavcan_protocol_param_ExecuteOpcodeRequest> param_opcode_server{canard_iface, param_executeopcode_req_cb};
+    
     // handlers for dynamic node allocation (DNA)
     Canard::Publisher<uavcan_protocol_dynamic_node_id_Allocation> allocation_pub{canard_iface};
     void handle_DNA_Allocation(const CanardRxTransfer& transfer, const uavcan_protocol_dynamic_node_id_Allocation& msg);
@@ -156,6 +164,26 @@ private:
         uint32_t send_next_node_id_allocation_request_at_ms;
         uint32_t node_id_allocation_unique_id_offset;
     } DNA;
+
+    static struct parameter {
+        const char *name;
+        enum uavcan_protocol_param_Value_type_t type;
+        float value;
+        float min_value;
+        float max_value;
+    } parameters[];
+};
+
+/*
+  a set of parameters to present to the user. In this example we don't
+  actually save parameters, this is just to show how to handle the
+  parameter protocool
+ */
+ESCNode::parameter ESCNode::parameters[] = {
+    { "CAN_NODE", UAVCAN_PROTOCOL_PARAM_VALUE_INTEGER_VALUE, MY_NODE_ID, 0, 127 },
+    { "MyPID_P", UAVCAN_PROTOCOL_PARAM_VALUE_REAL_VALUE, 1.2, 0.1, 5.0 },
+    { "MyPID_I", UAVCAN_PROTOCOL_PARAM_VALUE_REAL_VALUE, 1.35, 0.1, 5.0 },
+    { "MyPID_D", UAVCAN_PROTOCOL_PARAM_VALUE_REAL_VALUE, 0.025, 0.001, 1.0 },
 };
 
 /*
@@ -265,8 +293,10 @@ bool CanardInterface::respond(uint8_t destination_node_id, const Canard::Transfe
     return canardRequestOrRespondObj(&canard, destination_node_id, &tx_transfer) > 0;
 }
 
+// convenience macros
 #define MIN(a,b) ((a)<(b)?(a):(b))
 #define C_TO_KELVIN(temp) (temp + 273.15f)
+#define ARRAY_SIZE(x) (sizeof(x)/sizeof(x[0]))
 
 /*
   handle a GetNodeInfo request
@@ -303,6 +333,82 @@ void ESCNode::handle_RawCommand(const CanardRxTransfer& transfer, const uavcan_e
         escs[i].throttle = cmd.cmd.data[i]/8192.0;
         escs[i].last_update_us = tnow;
     }
+}
+
+/*
+  handle parameter GetSet request
+ */
+void ESCNode::handle_param_GetSet(const CanardRxTransfer& transfer, const uavcan_protocol_param_GetSetRequest& req)
+{
+    struct parameter *p = nullptr;
+    if (req.name.len != 0) {
+        for (uint16_t i=0; i<ARRAY_SIZE(parameters); i++) {
+            if (req.name.len == strlen(parameters[i].name) &&
+                strncmp((const char *)req.name.data, parameters[i].name, req.name.len) == 0) {
+                p = &parameters[i];
+                break;
+            }
+        }
+    } else if (req.index < ARRAY_SIZE(parameters)) {
+        p = &parameters[req.index];
+    }
+    if (p != nullptr && req.name.len != 0 && req.value.union_tag != UAVCAN_PROTOCOL_PARAM_VALUE_EMPTY) {
+        /*
+          this is a parameter set command. The implementation can
+          either choose to store the value in a persistent manner
+          immediately or can instead store it in memory and save to permanent storage on a
+         */
+        switch (p->type) {
+        case UAVCAN_PROTOCOL_PARAM_VALUE_INTEGER_VALUE:
+            p->value = req.value.integer_value;
+            break;
+        case UAVCAN_PROTOCOL_PARAM_VALUE_REAL_VALUE:
+            p->value = req.value.real_value;
+            break;
+        default:
+            return;
+        }
+    }
+
+    /*
+      for both set and get we reply with the current value
+     */
+    uavcan_protocol_param_GetSetResponse pkt {};
+
+    if (p != NULL) {
+        pkt.value.union_tag = p->type;
+        switch (p->type) {
+        case UAVCAN_PROTOCOL_PARAM_VALUE_INTEGER_VALUE:
+            pkt.value.integer_value = p->value;
+            break;
+        case UAVCAN_PROTOCOL_PARAM_VALUE_REAL_VALUE:
+            pkt.value.real_value = p->value;
+            break;
+        default:
+            return;
+        }
+        pkt.name.len = strlen(p->name);
+        strcpy((char *)pkt.name.data, p->name);
+    }
+
+    param_server.respond(transfer, pkt);
+}
+
+/*
+  handle parameter executeopcode request
+ */
+void ESCNode::handle_param_ExecuteOpcode(const CanardRxTransfer& transfer, const uavcan_protocol_param_ExecuteOpcodeRequest& req)
+{
+    if (req.opcode == UAVCAN_PROTOCOL_PARAM_EXECUTEOPCODE_REQUEST_OPCODE_ERASE) {
+        // here is where you would reset all parameters to defaults
+    }
+    if (req.opcode == UAVCAN_PROTOCOL_PARAM_EXECUTEOPCODE_REQUEST_OPCODE_SAVE) {
+        // here is where you would save all the changed parameters to permanent storage
+    }
+
+    uavcan_protocol_param_ExecuteOpcodeResponse pkt {};
+    pkt.ok = true;
+    param_opcode_server.respond(transfer, pkt);
 }
 
 /*

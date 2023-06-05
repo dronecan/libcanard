@@ -18,6 +18,11 @@ LIBS+=dsdl_generated/src/uavcan.protocol.GetNodeInfo_req.c
 LIBS+=dsdl_generated/src/uavcan.equipment.esc.RawCommand.c
 LIBS+=dsdl_generated/src/uavcan.equipment.esc.Status.c
 LIBS+=dsdl_generated/src/uavcan.protocol.dynamic_node_id.Allocation.c
+LIBS+=dsdl_generated/src/uavcan.protocol.param.GetSet_req.c
+LIBS+=dsdl_generated/src/uavcan.protocol.param.GetSet_res.c
+LIBS+=dsdl_generated/src/uavcan.protocol.param.ExecuteOpcode_req.c
+LIBS+=dsdl_generated/src/uavcan.protocol.param.ExecuteOpcode_res.c
+
 LIBS_OBJ := $(LIBS:.c=.o)
 
 all: esc_node

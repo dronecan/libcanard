@@ -1,13 +1,14 @@
 /*
   A simple example DroneCAN node implementing a servo actuator
 
-  This example implements 5 features:
+  This example implements 6 features:
 
    - announces on the bus using NodeStatus at 1Hz
    - answers GetNodeInfo requests
    - implements dynamic node allocation
    - listens for servo actuator commands and extracts demanded position
    - sends servo status messages (with synthetic data based on position)
+   - a parameter server for reading and writing node parameters
 
   This example uses socketcan on Linux for CAN transport
 
@@ -63,7 +64,28 @@ static struct servo_state {
     uint64_t last_update_us;
 } servos[NUM_SERVOS];
 
+/*
+  a set of parameters to present to the user. In this example we don't
+  actually save parameters, this is just to show how to handle the
+  parameter protocool
+ */
+static struct parameter {
+    char *name;
+    enum uavcan_protocol_param_Value_type_t type;
+    float value;
+    float min_value;
+    float max_value;
+} parameters[] = {
+    { "CAN_NODE", UAVCAN_PROTOCOL_PARAM_VALUE_INTEGER_VALUE, MY_NODE_ID, 0, 127 },
+    { "MyPID_P", UAVCAN_PROTOCOL_PARAM_VALUE_REAL_VALUE, 1.2, 0.1, 5.0 },
+    { "MyPID_I", UAVCAN_PROTOCOL_PARAM_VALUE_REAL_VALUE, 1.35, 0.1, 5.0 },
+    { "MyPID_D", UAVCAN_PROTOCOL_PARAM_VALUE_REAL_VALUE, 0.025, 0.001, 1.0 },
+};
+
+// some convenience macros
 #define MIN(a,b) ((a)<(b)?(a):(b))
+#define C_TO_KELVIN(temp) (temp + 273.15f)
+#define ARRAY_SIZE(x) (sizeof(x)/sizeof(x[0]))
 
 /*
   hold our node status as a static variable. It will be updated on any errors
@@ -179,6 +201,117 @@ static void handle_ArrayCommand(CanardInstance *ins, CanardRxTransfer *transfer)
     }
 }
 
+
+/*
+  handle parameter GetSet request
+ */
+static void handle_param_GetSet(CanardInstance* ins, CanardRxTransfer* transfer)
+{
+    struct uavcan_protocol_param_GetSetRequest req;
+    if (uavcan_protocol_param_GetSetRequest_decode(transfer, &req)) {
+        return;
+    }
+
+    struct parameter *p = NULL;
+    if (req.name.len != 0) {
+        for (uint16_t i=0; i<ARRAY_SIZE(parameters); i++) {
+            if (req.name.len == strlen(parameters[i].name) &&
+                strncmp((const char *)req.name.data, parameters[i].name, req.name.len) == 0) {
+                p = &parameters[i];
+                break;
+            }
+        }
+    } else if (req.index < ARRAY_SIZE(parameters)) {
+        p = &parameters[req.index];
+    }
+    if (p != NULL && req.name.len != 0 && req.value.union_tag != UAVCAN_PROTOCOL_PARAM_VALUE_EMPTY) {
+        /*
+          this is a parameter set command. The implementation can
+          either choose to store the value in a persistent manner
+          immediately or can instead store it in memory and save to permanent storage on a
+         */
+        switch (p->type) {
+        case UAVCAN_PROTOCOL_PARAM_VALUE_INTEGER_VALUE:
+            p->value = req.value.integer_value;
+            break;
+        case UAVCAN_PROTOCOL_PARAM_VALUE_REAL_VALUE:
+            p->value = req.value.real_value;
+            break;
+        default:
+            return;
+        }
+    }
+
+    /*
+      for both set and get we reply with the current value
+     */
+    struct uavcan_protocol_param_GetSetResponse pkt;
+    memset(&pkt, 0, sizeof(pkt));
+
+    if (p != NULL) {
+        pkt.value.union_tag = p->type;
+        switch (p->type) {
+        case UAVCAN_PROTOCOL_PARAM_VALUE_INTEGER_VALUE:
+            pkt.value.integer_value = p->value;
+            break;
+        case UAVCAN_PROTOCOL_PARAM_VALUE_REAL_VALUE:
+            pkt.value.real_value = p->value;
+            break;
+        default:
+            return;
+        }
+        pkt.name.len = strlen(p->name);
+        strcpy((char *)pkt.name.data, p->name);
+    }
+
+    uint8_t buffer[UAVCAN_PROTOCOL_PARAM_GETSET_RESPONSE_MAX_SIZE];
+    uint16_t total_size = uavcan_protocol_param_GetSetResponse_encode(&pkt, buffer);
+
+    canardRequestOrRespond(ins,
+                           transfer->source_node_id,
+                           UAVCAN_PROTOCOL_PARAM_GETSET_SIGNATURE,
+                           UAVCAN_PROTOCOL_PARAM_GETSET_ID,
+                           &transfer->transfer_id,
+                           transfer->priority,
+                           CanardResponse,
+                           &buffer[0],
+                           total_size);
+}
+
+/*
+  handle parameter executeopcode request
+ */
+static void handle_param_ExecuteOpcode(CanardInstance* ins, CanardRxTransfer* transfer)
+{
+    struct uavcan_protocol_param_ExecuteOpcodeRequest req;
+    if (uavcan_protocol_param_ExecuteOpcodeRequest_decode(transfer, &req)) {
+        return;
+    }
+    if (req.opcode == UAVCAN_PROTOCOL_PARAM_EXECUTEOPCODE_REQUEST_OPCODE_ERASE) {
+        // here is where you would reset all parameters to defaults
+    }
+    if (req.opcode == UAVCAN_PROTOCOL_PARAM_EXECUTEOPCODE_REQUEST_OPCODE_SAVE) {
+        // here is where you would save all the changed parameters to permanent storage
+    }
+
+    struct uavcan_protocol_param_ExecuteOpcodeResponse pkt;
+    memset(&pkt, 0, sizeof(pkt));
+
+    pkt.ok = true;
+
+    uint8_t buffer[UAVCAN_PROTOCOL_PARAM_EXECUTEOPCODE_RESPONSE_MAX_SIZE];
+    uint16_t total_size = uavcan_protocol_param_ExecuteOpcodeResponse_encode(&pkt, buffer);
+
+    canardRequestOrRespond(ins,
+                           transfer->source_node_id,
+                           UAVCAN_PROTOCOL_PARAM_EXECUTEOPCODE_SIGNATURE,
+                           UAVCAN_PROTOCOL_PARAM_EXECUTEOPCODE_ID,
+                           &transfer->transfer_id,
+                           transfer->priority,
+                           CanardResponse,
+                           &buffer[0],
+                           total_size);
+}
 
 /*
   data for dynamic node allocation process
@@ -303,6 +436,14 @@ static void onTransferReceived(CanardInstance *ins, CanardRxTransfer *transfer)
             handle_GetNodeInfo(ins, transfer);
             break;
         }
+        case UAVCAN_PROTOCOL_PARAM_GETSET_ID: {
+            handle_param_GetSet(ins, transfer);
+            break;
+        }
+        case UAVCAN_PROTOCOL_PARAM_EXECUTEOPCODE_ID: {
+            handle_param_ExecuteOpcode(ins, transfer);
+            break;
+        }
         }
     }
     if (transfer->transfer_type == CanardTransferTypeBroadcast) {
@@ -341,6 +482,14 @@ static bool shouldAcceptTransfer(const CanardInstance *ins,
         switch (data_type_id) {
         case UAVCAN_PROTOCOL_GETNODEINFO_ID: {
             *out_data_type_signature = UAVCAN_PROTOCOL_GETNODEINFO_REQUEST_SIGNATURE;
+            return true;
+        }
+        case UAVCAN_PROTOCOL_PARAM_GETSET_ID: {
+            *out_data_type_signature = UAVCAN_PROTOCOL_PARAM_GETSET_SIGNATURE;
+            return true;
+        }
+        case UAVCAN_PROTOCOL_PARAM_EXECUTEOPCODE_ID: {
+            *out_data_type_signature = UAVCAN_PROTOCOL_PARAM_EXECUTEOPCODE_SIGNATURE;
             return true;
         }
         }
