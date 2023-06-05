@@ -56,10 +56,14 @@ ctest .
 
 There is no dedicated documentation for the library API, because it is simple enough to be self-documenting.
 Please check out the explanations provided in the comments in the header file to learn the basics.
-Most importantly, check out the demo application under `tests/demo.c`.
-Also use [code search to find real life usage examples](https://github.com/search?q=libcanard&type=Code&utf8=%E2%9C%93).
+Most importantly, check out the `examples/` directory for fully worked examples
 
 For generation of de-serialisation and serialisation source code, please refer https://github.com/dronecan/dronecan_dsdlc .
+
+## C++ Interface
+
+The C++ interface is in the canard/ directory. See
+`examples/ESCNode_C++` for a fully worked example of the C++ API.
 
 ## Library Development
 
