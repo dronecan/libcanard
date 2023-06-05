@@ -283,6 +283,7 @@ void ESCNode::handle_GetNodeInfo(const CanardRxTransfer& transfer, const uavcan_
     node_info_rsp.software_version.minor = 2;
     node_info_rsp.hardware_version.major = 3;
     node_info_rsp.hardware_version.minor = 7;
+    getUniqueID(node_info_rsp.hardware_version.unique_id);
     node_info_rsp.status = node_status_msg;
     node_info_rsp.status.uptime_sec = millis32() / 1000UL;
 

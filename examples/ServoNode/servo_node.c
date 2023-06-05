@@ -128,12 +128,11 @@ static void handle_GetNodeInfo(CanardInstance *ins, CanardRxTransfer *transfer)
     pkt.software_version.optional_field_flags = 0;
     pkt.software_version.vcs_commit = 0; // should put git hash in here
 
-    // should fill in unique ID of the board
-    // readUniqueID(pkt.hardware_version.unique_id);
-
     // should fill in hardware version
     pkt.hardware_version.major = 2;
     pkt.hardware_version.minor = 3;
+
+    getUniqueID(pkt.hardware_version.unique_id);
 
     strncpy((char*)pkt.name.data, "ServoNode", sizeof(pkt.name.data));
     pkt.name.len = strnlen((char*)pkt.name.data, sizeof(pkt.name.data));

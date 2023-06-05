@@ -67,6 +67,19 @@ static uint64_t micros64(void)
 }
 
 /*
+  get a 16 byte unique ID for this node, this should be based on the CPU unique ID or other unique ID
+ */
+static void getUniqueID(uint8_t id[16])
+{
+    memset(id, 0, 16);
+    FILE *f = fopen("/etc/machine-id", "r");
+    if (f) {
+        fread(id, 1, 16, f);
+        fclose(f);
+    }
+}
+
+/*
   handle a GetNodeInfo request
 */
 static void handle_GetNodeInfo(CanardInstance *ins, CanardRxTransfer *transfer)
@@ -87,12 +100,11 @@ static void handle_GetNodeInfo(CanardInstance *ins, CanardRxTransfer *transfer)
     pkt.software_version.optional_field_flags = 0;
     pkt.software_version.vcs_commit = 0; // should put git hash in here
 
-    // should fill in unique ID of the board
-    // readUniqueID(pkt.hardware_version.unique_id);
-
     // should fill in hardware version
     pkt.hardware_version.major = 2;
     pkt.hardware_version.minor = 3;
+
+    getUniqueID(pkt.hardware_version.unique_id);
 
     strncpy((char*)pkt.name.data, "SimpleNode", sizeof(pkt.name.data));
     pkt.name.len = strnlen((char*)pkt.name.data, sizeof(pkt.name.data));
