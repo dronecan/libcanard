@@ -15,6 +15,10 @@ LIBS+=dsdl_generated/src/uavcan.protocol.GetNodeInfo_res.c
 LIBS+=dsdl_generated/src/uavcan.protocol.dynamic_node_id.Allocation.c
 LIBS+=dsdl_generated/src/uavcan.equipment.actuator.ArrayCommand.c
 LIBS+=dsdl_generated/src/uavcan.equipment.actuator.Status.c
+LIBS+=dsdl_generated/src/uavcan.protocol.param.GetSet_req.c
+LIBS+=dsdl_generated/src/uavcan.protocol.param.GetSet_res.c
+LIBS+=dsdl_generated/src/uavcan.protocol.param.ExecuteOpcode_req.c
+LIBS+=dsdl_generated/src/uavcan.protocol.param.ExecuteOpcode_res.c
 
 all: servo_node
 
