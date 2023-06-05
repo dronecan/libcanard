@@ -56,14 +56,14 @@ ctest .
 
 There is no dedicated documentation for the library API, because it is simple enough to be self-documenting.
 Please check out the explanations provided in the comments in the header file to learn the basics.
-Most importantly, check out the `examples/` directory for fully worked examples
+Most importantly, check out the [examples](examples) directory for fully worked examples
 
 For generation of de-serialisation and serialisation source code, please refer https://github.com/dronecan/dronecan_dsdlc .
 
 ## C++ Interface
 
 The C++ interface is in the canard/ directory. See
-`examples/ESCNode_C++` for a fully worked example of the C++ API.
+[examples/ESCNode_C++](examples/ESCNode_C++) for a fully worked example of the C++ API.
 
 ## Library Development
 
