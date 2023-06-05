@@ -22,3 +22,6 @@ jobs:
     - name: build ServoNode
       working-directory: ${{github.workspace}}/examples/ServoNode
       run: make
+    - name: build ESCNode C++
+      working-directory: ${{github.workspace}}/examples/ESCNode_C++
+      run: make
