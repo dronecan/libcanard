@@ -8,6 +8,7 @@
    - implements dynamic node allocation
    - listens for ESC RawCommand commands and extracts throttle levels
    - sends ESC Status messages (with synthetic data based on throttles)
+   - a parameter server for reading and writing node parameters
 
   This example uses socketcan on Linux for CAN transport
 
