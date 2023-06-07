@@ -1837,10 +1837,16 @@ CANARD_INTERNAL void initPoolAllocator(CanardPoolAllocator* allocator,
     allocator->statistics.capacity_blocks = buf_len;
     allocator->statistics.current_usage_blocks = 0;
     allocator->statistics.peak_usage_blocks = 0;
+    // user should initialize semaphore after the canardInit
+    // or at first call of canard_allocate_sem_take
+    allocator->semaphore = NULL;
 }
 
 CANARD_INTERNAL void* allocateBlock(CanardPoolAllocator* allocator)
 {
+#if CANARD_ALLOCATE_SEM
+    canard_allocate_sem_take(allocator);
+#endif
     // Check if there are any blocks available in the free list.
     if (allocator->free_list == NULL)
     {
@@ -1857,12 +1863,17 @@ CANARD_INTERNAL void* allocateBlock(CanardPoolAllocator* allocator)
     {
         allocator->statistics.peak_usage_blocks = allocator->statistics.current_usage_blocks;
     }
-
+#if CANARD_ALLOCATE_SEM
+    canard_allocate_sem_give(allocator);
+#endif
     return result;
 }
 
 CANARD_INTERNAL void freeBlock(CanardPoolAllocator* allocator, void* p)
 {
+#if CANARD_ALLOCATE_SEM
+    canard_allocate_sem_take(allocator);
+#endif
     CanardPoolAllocatorBlock* block = (CanardPoolAllocatorBlock*) p;
 
     block->next = allocator->free_list;
@@ -1870,4 +1881,7 @@ CANARD_INTERNAL void freeBlock(CanardPoolAllocator* allocator, void* p)
 
     CANARD_ASSERT(allocator->statistics.current_usage_blocks > 0);
     allocator->statistics.current_usage_blocks--;
+#if CANARD_ALLOCATE_SEM
+    canard_allocate_sem_give(allocator);
+#endif
 }
