@@ -15,7 +15,7 @@ bool CanardInterface::broadcast(const Transfer &bcast_transfer) {
     // get current time in microseconds
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
-    uint64_t timestamp_usec = ts.tv_sec * 1000000ULL + ts.tv_nsec / 1000ULL;
+    uint64_t timestamp_usec = uint64_t(ts.tv_sec) * 1000000ULL + uint64_t(ts.tv_nsec) / 1000ULL;
 #endif
     // do canard broadcast
     CanardTxTransfer tx_transfer = {
@@ -29,7 +29,9 @@ bool CanardInterface::broadcast(const Transfer &bcast_transfer) {
 #if CANARD_ENABLE_CANFD
         .canfd = bcast_transfer.canfd,
 #endif
-
+#if CANARD_ENABLE_DEADLINE
+        .deadline_usec = timestamp_usec + (bcast_transfer.timeout_ms*1000),
+#endif
 #if CANARD_MULTI_IFACE
         .iface_mask = CANARD_IFACE_ALL,
 #endif
@@ -43,7 +45,7 @@ bool CanardInterface::request(uint8_t destination_node_id, const Transfer &req_t
     // get current time in microseconds
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
-    uint64_t timestamp_usec = ts.tv_sec * 1000000ULL + ts.tv_nsec / 1000ULL;
+    uint64_t timestamp_usec = uint64_t(ts.tv_sec) * 1000000ULL + uint64_t(ts.tv_nsec) / 1000ULL;
 #endif
 
     // do canard request
@@ -73,7 +75,7 @@ bool CanardInterface::respond(uint8_t destination_node_id, const Transfer &res_t
     // get current time in microseconds
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
-    uint64_t timestamp_usec = ts.tv_sec * 1000000ULL + ts.tv_nsec / 1000ULL;
+    uint64_t timestamp_usec = uint64_t(ts.tv_sec) * 1000000ULL + uint64_t(ts.tv_nsec) / 1000ULL;
 #endif
     // do canard respond
     CanardTxTransfer tx_transfer = {

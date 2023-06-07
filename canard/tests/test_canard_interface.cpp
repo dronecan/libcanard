@@ -258,12 +258,14 @@ TEST(StaticCanardTest, test_multiple_clients) {
     CANARD_TEST_INTERFACE(1).free();
 }
 
+#if CANARD_ENABLE_DEADLINE
 static uint8_t test_var = 0;
 static void test_node_status_server_callback(const CanardRxTransfer &transfer, const uavcan_protocol_NodeStatus &req) {
+    (void)transfer;
+    (void)req;
     test_var++;
 }
 
-#if CANARD_ENABLE_DEADLINE
 TEST(StaticCanardTest, test_CleanupStaleTransfers)
 {
     CANARD_TEST_INTERFACE_DEFINE(0);
