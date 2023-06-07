@@ -116,7 +116,7 @@ public:
         );
         // send the message if encoded successfully
         if (len > 0) {
-            Transfer msg_transfer;
+            Transfer msg_transfer {};
             msg_transfer.transfer_type = CanardTransferTypeBroadcast;
             msg_transfer.data_type_id = msgtype::cxx_iface::ID;
             msg_transfer.data_type_signature = msgtype::cxx_iface::SIGNATURE;
