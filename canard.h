@@ -68,8 +68,13 @@ extern "C" {
 
 /// By default this macro resolves to the standard assert(). The user can redefine this if necessary.
 #ifndef CANARD_ASSERT
-# define CANARD_ASSERT(x)   assert(x)
+#ifdef CANARD_ENABLE_ASSERTS
+ #error assertsenabled
+# define CANARD_ASSERT(x) assert(x)
+#else
+# define CANARD_ASSERT(x)
 #endif
+#endif // CANARD_ASSERT
 
 #define CANARD_GLUE(a, b)           CANARD_GLUE_IMPL_(a, b)
 #define CANARD_GLUE_IMPL_(a, b)     a##b
