@@ -278,8 +278,8 @@ TEST(StaticCanardTest, test_CleanupStaleTransfers)
     node_status.sub_mode = 4;
     node_status.vendor_specific_status_code = 5;
 
-    uint8_t buffer0[2048] {};
-    uint8_t buffer1[2048] {};
+    uint8_t buffer0[4096] {};
+    uint8_t buffer1[4096] {};
     CANARD_TEST_INTERFACE(0).init(buffer0, sizeof(buffer0));
     CANARD_TEST_INTERFACE(1).init(buffer1, sizeof(buffer1));
 
@@ -298,7 +298,7 @@ TEST(StaticCanardTest, test_CleanupStaleTransfers)
         } else {
             node_status_pub_0.set_timeout_ms(1);
         }
-        node_status_pub_0.broadcast(node_status);
+        ASSERT_TRUE(node_status_pub_0.broadcast(node_status));
     }
     // sleep for 2ms
     usleep(2000);
