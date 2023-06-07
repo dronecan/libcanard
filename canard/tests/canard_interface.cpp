@@ -57,11 +57,11 @@ bool CanardInterface::request(uint8_t destination_node_id, const Transfer &req_t
         .priority = req_transfer.priority,
         .payload = (const uint8_t*)req_transfer.payload,
         .payload_len = (uint16_t)req_transfer.payload_len,
-#if CANARD_ENABLE_DEADLINE
-        .deadline_usec = timestamp_usec + (req_transfer.timeout_ms*1000),
-#endif
 #if CANARD_ENABLE_CANFD
         .canfd = req_transfer.canfd,
+#endif
+#if CANARD_ENABLE_DEADLINE
+        .deadline_usec = timestamp_usec + (req_transfer.timeout_ms*1000),
 #endif
 #if CANARD_MULTI_IFACE
         .iface_mask = CANARD_IFACE_ALL,
@@ -86,11 +86,11 @@ bool CanardInterface::respond(uint8_t destination_node_id, const Transfer &res_t
         .priority = res_transfer.priority,
         .payload = (const uint8_t*)res_transfer.payload,
         .payload_len = (uint16_t)res_transfer.payload_len,
-#if CANARD_ENABLE_DEADLINE
-        .deadline_usec = timestamp_usec + (res_transfer.timeout_ms*1000),
-#endif
 #if CANARD_ENABLE_CANFD
         .canfd = res_transfer.canfd,
+#endif
+#if CANARD_ENABLE_DEADLINE
+        .deadline_usec = timestamp_usec + (res_transfer.timeout_ms*1000),
 #endif
 #if CANARD_MULTI_IFACE
         .iface_mask = CANARD_IFACE_ALL,
