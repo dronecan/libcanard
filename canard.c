@@ -1850,6 +1850,9 @@ CANARD_INTERNAL void* allocateBlock(CanardPoolAllocator* allocator)
     // Check if there are any blocks available in the free list.
     if (allocator->free_list == NULL)
     {
+#if CANARD_ALLOCATE_SEM
+        canard_allocate_sem_give(allocator);
+#endif
         return NULL;
     }
 
