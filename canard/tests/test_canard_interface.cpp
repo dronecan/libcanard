@@ -305,7 +305,7 @@ TEST(StaticCanardTest, test_CleanupStaleTransfers)
     // current time in us
     timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
-    uint64_t timestamp = (ts.tv_sec * 1000000ULL) + (ts.tv_nsec / 1000ULL);
+    uint64_t timestamp = uint64_t(ts.tv_sec) * 1000000ULL + uint64_t(ts.tv_nsec) / 1000ULL;
     // cleanup stale transfers
     canardCleanupStaleTransfers(&CANARD_TEST_INTERFACE(0).canard, timestamp);
     // update tx
