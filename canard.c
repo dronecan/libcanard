@@ -34,8 +34,8 @@
 #define MAX(a, b)   (((a) > (b)) ? (a) : (b))
 
 
-#define TRANSFER_TIMEOUT_USEC                       2000000
-#define IFACE_SWITCH_DELAY_USEC                     1000000
+#define TRANSFER_TIMEOUT_USEC                       2000000U
+#define IFACE_SWITCH_DELAY_USEC                     1000000U
 
 #define TRANSFER_ID_BIT_LEN                         5U
 #define ANON_MSG_DATA_TYPE_ID_BIT_LEN               2U
