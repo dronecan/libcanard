@@ -220,7 +220,9 @@ int16_t canardBroadcastObj(CanardInstance* ins, CanardTxTransfer* transfer_objec
 
     const int16_t result = enqueueTxFrames(ins, can_id, crc, transfer_object);
 
-    incrementTransferID(transfer_object->inout_transfer_id);
+    if (result > 0) {
+        incrementTransferID(transfer_object->inout_transfer_id);
+    }
 
     return result;
 }
@@ -374,7 +376,7 @@ int16_t canardRequestOrRespondObj(CanardInstance* ins, uint8_t destination_node_
 
     const int16_t result = enqueueTxFrames(ins, can_id, crc, transfer_object);
 
-    if (transfer_object->transfer_type == CanardTransferTypeRequest)                      // Response Transfer ID must not be altered
+    if (result > 0 && transfer_object->transfer_type == CanardTransferTypeRequest)                      // Response Transfer ID must not be altered
     {
         incrementTransferID(transfer_object->inout_transfer_id);
     }
