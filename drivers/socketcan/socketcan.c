@@ -245,6 +245,9 @@ int16_t socketcanReceive(SocketCANInstance* ins, CanardCANFrame* out_frame, int3
         memcpy(out_frame->data, &receive_frame.data, receive_frame.can_dlc);
     }
 
+    // assume a single interface
+    out_frame->iface_id = 0;
+
     return 1;
 }
 

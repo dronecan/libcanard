@@ -49,7 +49,6 @@ public:
 
     uint8_t get_node_id() const override { return canard.node_id; }
 
-protected:
     CanardInstance canard {};
 };
 
@@ -73,7 +72,7 @@ private:
 
 class CanardTestInterface : public CanardInterface {
 public:
-    CanardTestInterface(int index) :
+    CanardTestInterface(uint8_t index) :
     CanardInterface(index) {
         CanardTestNetwork::get_network().ifaces[index] = this;
     }

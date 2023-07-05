@@ -68,8 +68,13 @@ extern "C" {
 
 /// By default this macro resolves to the standard assert(). The user can redefine this if necessary.
 #ifndef CANARD_ASSERT
-# define CANARD_ASSERT(x)   assert(x)
+#ifdef CANARD_ENABLE_ASSERTS
+ #error assertsenabled
+# define CANARD_ASSERT(x) assert(x)
+#else
+# define CANARD_ASSERT(x)
 #endif
+#endif // CANARD_ASSERT
 
 #define CANARD_GLUE(a, b)           CANARD_GLUE_IMPL_(a, b)
 #define CANARD_GLUE_IMPL_(a, b)     a##b
@@ -85,6 +90,9 @@ extern "C" {
 # endif
 #endif
 
+#ifndef CANARD_ALLOCATE_SEM
+#define CANARD_ALLOCATE_SEM 0
+#endif
 /// Error code definitions; inverse of these values may be returned from API calls.
 #define CANARD_OK                                      0
 // Value 1 is omitted intentionally, since -1 is often used in 3rd party code
@@ -330,6 +338,9 @@ typedef struct CanardBufferBlock
  */
 typedef struct
 {
+    // user should initialize semaphore after the canardInit
+    // or at first call of canard_allocate_sem_take
+    void *semaphore;
     CanardPoolAllocatorBlock* free_list;
     CanardPoolAllocatorStatistics statistics;
     void *arena;
@@ -710,6 +721,12 @@ CANARD_STATIC_ASSERT(((uint32_t)CANARD_MULTIFRAME_RX_PAYLOAD_HEAD_SIZE) < 128,
 #else
 CANARD_STATIC_ASSERT(((uint32_t)CANARD_MULTIFRAME_RX_PAYLOAD_HEAD_SIZE) < 32,
                      "Please define CANARD_64_BIT=1 for 64 bit builds");
+#endif
+
+#if CANARD_ALLOCATE_SEM
+// user implemented functions for taking and freeing semaphores
+void canard_allocate_sem_take(CanardPoolAllocator *allocator);
+void canard_allocate_sem_give(CanardPoolAllocator *allocator);
 #endif
 
 #ifdef __cplusplus

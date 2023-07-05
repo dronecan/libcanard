@@ -12,6 +12,7 @@
 #ifndef CANARD_MALLOC
 #include <stdlib.h>
 #include <new>
+#include <cstring>
 #define CANARD_MALLOC malloc
 #define CANARD_FREE free
 #endif
@@ -23,6 +24,7 @@ T* allocate(Args...args) {
     if (ret == nullptr) {
         return nullptr;
     }
+    memset(ret, 0, sizeof(T));
     return new(ret) T(args...);
 }
 

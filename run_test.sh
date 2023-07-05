@@ -1,13 +1,5 @@
 #!/bin/bash
 
-# # This script runs the unit tests for the library.
-# # build native bit version
-# cmake $* -S . -B build && cmake --build build || exit 1
-# # run tests
-# pushd build/
-# ctest || exit 1
-# popd
-
 function run_cmake() {
     # remove build directory if it exists
     rm -rf build
@@ -16,11 +8,13 @@ function run_cmake() {
     # echo with highlighted text
     echo -e "\e[1;32mRunning cmake with options: $*\e[0m"
     cmake $* -DMEMORYCHECK_COMMAND_OPTIONS="--error-exitcode=1 --leak-check=full --track-origins=yes" -S . -B build || exit 1
-    pushd build/
-    make || exit 1
-    if ! ctest -D ExperimentalMemCheck --output-on-failure; then
+    cmake --build build --parallel `nproc`
+    if ! ctest --test-dir build -D ExperimentalMemCheck --output-on-failure; then
         exit 1
     fi
+
+    pushd build/
+    # ctest -T memcheck || exit 1
     # also run the coverage if coverage is enabled
     if [[ $* == *-DCANARD_ENABLE_COVERAGE=1* ]]; then
         echo -e "\e[1;32mRunning coverage test\e[0m"
@@ -53,7 +47,7 @@ if [ $# -eq 0 ]; then
                 OPTS="$OPTS -D${OPTIONS[j]}=1"
             fi
         done
-        run_cmake -DCANARD_ENABLE_COVERAGE=1 $OPTS
+        run_cmake -DBUILD_TESTING=1 -DCANARD_ENABLE_COVERAGE=1 $OPTS
     done
 else
     run_cmake $*

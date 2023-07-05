@@ -34,8 +34,8 @@
 #define MAX(a, b)   (((a) > (b)) ? (a) : (b))
 
 
-#define TRANSFER_TIMEOUT_USEC                       2000000
-#define IFACE_SWITCH_DELAY_USEC                     1000000
+#define TRANSFER_TIMEOUT_USEC                       2000000U
+#define IFACE_SWITCH_DELAY_USEC                     1000000U
 
 #define TRANSFER_ID_BIT_LEN                         5U
 #define ANON_MSG_DATA_TYPE_ID_BIT_LEN               2U
@@ -220,7 +220,9 @@ int16_t canardBroadcastObj(CanardInstance* ins, CanardTxTransfer* transfer_objec
 
     const int16_t result = enqueueTxFrames(ins, can_id, crc, transfer_object);
 
-    incrementTransferID(transfer_object->inout_transfer_id);
+    if (result > 0) {
+        incrementTransferID(transfer_object->inout_transfer_id);
+    }
 
     return result;
 }
@@ -374,7 +376,7 @@ int16_t canardRequestOrRespondObj(CanardInstance* ins, uint8_t destination_node_
 
     const int16_t result = enqueueTxFrames(ins, can_id, crc, transfer_object);
 
-    if (transfer_object->transfer_type == CanardTransferTypeRequest)                      // Response Transfer ID must not be altered
+    if (result > 0 && transfer_object->transfer_type == CanardTransferTypeRequest)                      // Response Transfer ID must not be altered
     {
         incrementTransferID(transfer_object->inout_transfer_id);
     }
@@ -687,6 +689,41 @@ void canardCleanupStaleTransfers(CanardInstance* ins, uint64_t current_time_usec
             state = canardRxFromIdx(&ins->allocator, state->next);
         }
     }
+
+#if CANARD_MULTI_IFACE || CANARD_ENABLE_DEADLINE
+    // remove stale TX transfers
+    CanardTxQueueItem* prev_item = ins->tx_queue, * item = ins->tx_queue;
+    while (item != NULL)
+    {
+#if CANARD_MULTI_IFACE && CANARD_ENABLE_DEADLINE
+        if ((current_time_usec > item->frame.deadline_usec) || item->frame.iface_mask == 0)
+#elif CANARD_MULTI_IFACE
+        if (item->frame.iface_mask == 0)
+#else
+        if (current_time_usec > item->frame.deadline_usec)
+#endif
+        {
+            if (item == ins->tx_queue)
+            {
+                ins->tx_queue = ins->tx_queue->next;
+                freeBlock(&ins->allocator, item);
+                item = ins->tx_queue;
+                prev_item = item;
+            }
+            else
+            {
+                prev_item->next = item->next;
+                freeBlock(&ins->allocator, item);
+                item = prev_item->next;
+            }
+        }
+        else
+        {
+            prev_item = item;
+            item = item->next;
+        }
+    }
+#endif
 }
 
 int16_t canardDecodeScalar(const CanardRxTransfer* transfer,
@@ -1800,13 +1837,22 @@ CANARD_INTERNAL void initPoolAllocator(CanardPoolAllocator* allocator,
     allocator->statistics.capacity_blocks = buf_len;
     allocator->statistics.current_usage_blocks = 0;
     allocator->statistics.peak_usage_blocks = 0;
+    // user should initialize semaphore after the canardInit
+    // or at first call of canard_allocate_sem_take
+    allocator->semaphore = NULL;
 }
 
 CANARD_INTERNAL void* allocateBlock(CanardPoolAllocator* allocator)
 {
+#if CANARD_ALLOCATE_SEM
+    canard_allocate_sem_take(allocator);
+#endif
     // Check if there are any blocks available in the free list.
     if (allocator->free_list == NULL)
     {
+#if CANARD_ALLOCATE_SEM
+        canard_allocate_sem_give(allocator);
+#endif
         return NULL;
     }
 
@@ -1820,12 +1866,17 @@ CANARD_INTERNAL void* allocateBlock(CanardPoolAllocator* allocator)
     {
         allocator->statistics.peak_usage_blocks = allocator->statistics.current_usage_blocks;
     }
-
+#if CANARD_ALLOCATE_SEM
+    canard_allocate_sem_give(allocator);
+#endif
     return result;
 }
 
 CANARD_INTERNAL void freeBlock(CanardPoolAllocator* allocator, void* p)
 {
+#if CANARD_ALLOCATE_SEM
+    canard_allocate_sem_take(allocator);
+#endif
     CanardPoolAllocatorBlock* block = (CanardPoolAllocatorBlock*) p;
 
     block->next = allocator->free_list;
@@ -1833,4 +1884,7 @@ CANARD_INTERNAL void freeBlock(CanardPoolAllocator* allocator, void* p)
 
     CANARD_ASSERT(allocator->statistics.current_usage_blocks > 0);
     allocator->statistics.current_usage_blocks--;
+#if CANARD_ALLOCATE_SEM
+    canard_allocate_sem_give(allocator);
+#endif
 }

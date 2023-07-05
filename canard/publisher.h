@@ -69,6 +69,7 @@ protected:
             transfer.priority = priority;
             transfer.timeout_ms = timeout;
             return interface.request(destination_node_id, transfer);
+        case CanardTransferTypeResponse:
         default:
             return false;
         }
@@ -100,8 +101,13 @@ public:
     /// @param canfd true if the message should be sent as CAN FD
     /// @return true if the message was put into the queue successfully
     bool broadcast(msgtype& msg, bool canfd) {
+#if !CANARD_ENABLE_CANFD
+        if (canfd) {
+            return false;
+        }
+#endif
         // encode the message
-        uint16_t len = msgtype::cxx_iface::encode(&msg, msg_buf 
+        uint32_t len = msgtype::cxx_iface::encode(&msg, msg_buf 
 #if CANARD_ENABLE_CANFD
         , !canfd
 #elif CANARD_ENABLE_TAO_OPTION
@@ -110,7 +116,7 @@ public:
         );
         // send the message if encoded successfully
         if (len > 0) {
-            Transfer msg_transfer;
+            Transfer msg_transfer {};
             msg_transfer.transfer_type = CanardTransferTypeBroadcast;
             msg_transfer.data_type_id = msgtype::cxx_iface::ID;
             msg_transfer.data_type_signature = msgtype::cxx_iface::SIGNATURE;
