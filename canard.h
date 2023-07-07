@@ -714,6 +714,9 @@ CanardPoolAllocatorStatistics canardGetPoolAllocatorStatistics(CanardInstance* i
 uint16_t canardConvertNativeFloatToFloat16(float value);
 float canardConvertFloat16ToNativeFloat(uint16_t value);
 
+uint16_t extractDataType(uint32_t id);
+CanardTransferType extractTransferType(uint32_t id);
+
 /// Abort the build if the current platform is not supported.
 #if CANARD_ENABLE_CANFD
 CANARD_STATIC_ASSERT(((uint32_t)CANARD_MULTIFRAME_RX_PAYLOAD_HEAD_SIZE) < 128,

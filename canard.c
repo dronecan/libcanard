@@ -1353,7 +1353,7 @@ CANARD_INTERNAL void prepareForNextTransfer(CanardRxState* state)
 /**
  * returns data type from id
  */
-CANARD_INTERNAL uint16_t extractDataType(uint32_t id)
+uint16_t extractDataType(uint32_t id)
 {
     if (extractTransferType(id) == CanardTransferTypeBroadcast)
     {
@@ -1373,7 +1373,7 @@ CANARD_INTERNAL uint16_t extractDataType(uint32_t id)
 /**
  * returns transfer type from id
  */
-CANARD_INTERNAL CanardTransferType extractTransferType(uint32_t id)
+CanardTransferType extractTransferType(uint32_t id)
 {
     const bool is_service = SERVICE_NOT_MSG_FROM_ID(id);
     if (!is_service)
