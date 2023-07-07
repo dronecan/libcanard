@@ -63,10 +63,6 @@ CANARD_INTERNAL int16_t bufferBlockPushBytes(CanardPoolAllocator* allocator,
 
 CANARD_INTERNAL CanardBufferBlock* createBufferBlock(CanardPoolAllocator* allocator);
 
-CANARD_INTERNAL CanardTransferType extractTransferType(uint32_t id);
-
-CANARD_INTERNAL uint16_t extractDataType(uint32_t id);
-
 CANARD_INTERNAL void pushTxQueue(CanardInstance* ins,
                                  CanardTxQueueItem* item);
 
