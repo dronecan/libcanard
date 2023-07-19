@@ -601,7 +601,7 @@ int16_t canardHandleRxFrame(CanardInstance* ins, const CanardCANFrame* frame, ui
                 CANARD_ASSERT(block != NULL);
 
                 const size_t offset_within_block = rx_state->payload_len - offset;
-                CANARD_ASSERT(offset_within_block < CANARD_BUFFER_BLOCK_DATA_SIZE);
+                CANARD_ASSERT(offset_within_block <= CANARD_BUFFER_BLOCK_DATA_SIZE);
 
                 for (size_t i = offset_within_block;
                      (i < CANARD_BUFFER_BLOCK_DATA_SIZE) && (tail_offset < frame_payload_size);
