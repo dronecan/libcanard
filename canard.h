@@ -92,6 +92,11 @@ extern "C" {
 #ifndef CANARD_ALLOCATE_SEM
 #define CANARD_ALLOCATE_SEM 0
 #endif
+
+#ifndef CANARD_TX_QUEUE_SEM
+#define CANARD_TX_QUEUE_SEM 0
+#endif
+
 /// Error code definitions; inverse of these values may be returned from API calls.
 #define CANARD_OK                                      0
 // Value 1 is omitted intentionally, since -1 is often used in 3rd party code
@@ -386,6 +391,9 @@ struct CanardInstance
 
     CanardRxState* rx_states;                       ///< RX transfer states
     CanardTxQueueItem* tx_queue;                    ///< TX frames awaiting transmission
+#ifdef CANARD_TX_QUEUE_SEM
+    void *tx_queue_sem;                             ///< TX Queue Operator Semaphore
+#endif
 
     void* user_reference;                           ///< User pointer that can link this instance with other objects
 
@@ -729,6 +737,12 @@ CANARD_STATIC_ASSERT(((uint32_t)CANARD_MULTIFRAME_RX_PAYLOAD_HEAD_SIZE) < 32,
 // user implemented functions for taking and freeing semaphores
 void canard_allocate_sem_take(CanardPoolAllocator *allocator);
 void canard_allocate_sem_give(CanardPoolAllocator *allocator);
+#endif
+
+#if CANARD_TX_QUEUE_SEM
+// user implemented functions for taking and freeing semaphores
+void canard_tx_queue_sem_take(const CanardInstance* ins);
+void canard_tx_queue_sem_give(const CanardInstance* ins);
 #endif
 
 #ifdef __cplusplus

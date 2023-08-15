@@ -88,6 +88,10 @@ void canardInit(CanardInstance* out_ins,
     out_ins->should_accept = should_accept;
     out_ins->rx_states = NULL;
     out_ins->tx_queue = NULL;
+#ifdef CANARD_TX_QUEUE_SEM
+    // user should initialize semaphore after the canardInit
+    out_ins->tx_queue_sem = NULL;
+#endif
     out_ins->user_reference = user_reference;
 #if CANARD_ENABLE_TAO_OPTION
     out_ins->tao_disabled = false;
@@ -692,6 +696,9 @@ void canardCleanupStaleTransfers(CanardInstance* ins, uint64_t current_time_usec
 
 #if CANARD_MULTI_IFACE || CANARD_ENABLE_DEADLINE
     // remove stale TX transfers
+#if CANARD_TX_QUEUE_SEM
+    canard_tx_queue_sem_take(ins);
+#endif
     CanardTxQueueItem* prev_item = ins->tx_queue, * item = ins->tx_queue;
     while (item != NULL)
     {
@@ -723,6 +730,9 @@ void canardCleanupStaleTransfers(CanardInstance* ins, uint64_t current_time_usec
             item = item->next;
         }
     }
+#if CANARD_TX_QUEUE_SEM
+    canard_tx_queue_sem_give(ins);
+#endif
 #endif
 }
 
@@ -1169,7 +1179,13 @@ CANARD_INTERNAL int16_t enqueueTxFrames(CanardInstance* ins,
 #if CANARD_ENABLE_CANFD
         queue_item->frame.canfd = transfer->canfd;
 #endif
+#if CANARD_TX_QUEUE_SEM
+    canard_tx_queue_sem_take(ins);
+#endif
         pushTxQueue(ins, queue_item);
+#if CANARD_TX_QUEUE_SEM
+    canard_tx_queue_sem_give(ins);
+#endif
         result++;
     }
     else                                                                    // Multi frame transfer
@@ -1179,12 +1195,17 @@ CANARD_INTERNAL int16_t enqueueTxFrames(CanardInstance* ins,
         uint8_t sot_eot = 0x80;
 
         CanardTxQueueItem* queue_item = NULL;
-
+#if CANARD_TX_QUEUE_SEM
+        canard_tx_queue_sem_take(ins);
+#endif
         while (transfer->payload_len - data_index != 0)
         {
             queue_item = createTxItem(&ins->allocator);
             if (queue_item == NULL)
             {
+#if CANARD_TX_QUEUE_SEM
+                canard_tx_queue_sem_give(ins);
+#endif
                 CANARD_ASSERT(false);
                 return -CANARD_ERROR_OUT_OF_MEMORY;          // TODO: Purge all frames enqueued so far
             }
@@ -1228,6 +1249,9 @@ CANARD_INTERNAL int16_t enqueueTxFrames(CanardInstance* ins,
             toggle ^= 1;
             sot_eot = 0;
         }
+#if CANARD_TX_QUEUE_SEM
+        canard_tx_queue_sem_give(ins);
+#endif
     }
 
     return result;
