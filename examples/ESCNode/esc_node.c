@@ -33,6 +33,10 @@
 #include <assert.h>
 #include <errno.h>
 #include <stdbool.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 // include the headers for the generated DroneCAN messages from the
 // dronecan_dsdlc compiler
@@ -56,31 +60,41 @@ static uint8_t memory_pool[1024];
 
 
 /*
-  keep the state of 4 ESCs, simulating a 4 in 1 ESC node
+  keep the state of the ESC
  */
-#define NUM_ESCS 4
 static struct esc_state {
     float throttle;
     uint64_t last_update_us;
-} escs[NUM_ESCS];
+} esc;
 
+/*
+  state of user settings. This will be saved in settings.dat. On a
+  real device a better storage system will be needed
+  For simplicity we store all parameters as floats in this example
+ */
+static struct
+{
+    float can_node;
+    float esc_index;
+    float direction;
+} settings;
 
 /*
   a set of parameters to present to the user. In this example we don't
   actually save parameters, this is just to show how to handle the
-  parameter protocool
+  parameter protocol
  */
 static struct parameter {
     char *name;
     enum uavcan_protocol_param_Value_type_t type;
-    float value;
+    float *value;
     float min_value;
     float max_value;
 } parameters[] = {
-    { "CAN_NODE", UAVCAN_PROTOCOL_PARAM_VALUE_INTEGER_VALUE, MY_NODE_ID, 0, 127 },
-    { "MyPID_P", UAVCAN_PROTOCOL_PARAM_VALUE_REAL_VALUE, 1.2, 0.1, 5.0 },
-    { "MyPID_I", UAVCAN_PROTOCOL_PARAM_VALUE_REAL_VALUE, 1.35, 0.1, 5.0 },
-    { "MyPID_D", UAVCAN_PROTOCOL_PARAM_VALUE_REAL_VALUE, 0.025, 0.001, 1.0 },
+    // add any parameters you want users to be able to set
+    { "CAN_NODE", UAVCAN_PROTOCOL_PARAM_VALUE_INTEGER_VALUE, &settings.can_node, 0, 127 }, // CAN node ID
+    { "ESC_INDEX", UAVCAN_PROTOCOL_PARAM_VALUE_INTEGER_VALUE, &settings.esc_index, 0, 32 }, // index in RawCommand
+    { "DIRECTION", UAVCAN_PROTOCOL_PARAM_VALUE_BOOLEAN_VALUE, &settings.direction, 0, 1 }, // spin direction
 };
 
 // some convenience macros
@@ -131,6 +145,32 @@ static void getUniqueID(uint8_t id[16])
 }
 
 /*
+  save all settings
+ */
+static void save_settings(void)
+{
+    int fd = open("settings.dat", O_WRONLY|O_CREAT|O_TRUNC, 0644);
+    if (fd == -1) {
+        return;
+    }
+    write(fd, (void*)&settings, sizeof(settings));
+    close(fd);
+}
+
+/*
+  load all settings
+ */
+static void load_settings(void)
+{
+    int fd = open("settings.dat", O_RDONLY);
+    if (fd == -1) {
+        return;
+    }
+    read(fd, (void*)&settings, sizeof(settings));
+    close(fd);
+}
+
+/*
   handle parameter GetSet request
  */
 static void handle_param_GetSet(CanardInstance* ins, CanardRxTransfer* transfer)
@@ -160,14 +200,18 @@ static void handle_param_GetSet(CanardInstance* ins, CanardRxTransfer* transfer)
          */
         switch (p->type) {
         case UAVCAN_PROTOCOL_PARAM_VALUE_INTEGER_VALUE:
-            p->value = req.value.integer_value;
+            *p->value = req.value.integer_value;
+            break;
+        case UAVCAN_PROTOCOL_PARAM_VALUE_BOOLEAN_VALUE:
+            *p->value = req.value.boolean_value;
             break;
         case UAVCAN_PROTOCOL_PARAM_VALUE_REAL_VALUE:
-            p->value = req.value.real_value;
+            *p->value = req.value.real_value;
             break;
         default:
             return;
         }
+        save_settings();
     }
 
     /*
@@ -180,10 +224,13 @@ static void handle_param_GetSet(CanardInstance* ins, CanardRxTransfer* transfer)
         pkt.value.union_tag = p->type;
         switch (p->type) {
         case UAVCAN_PROTOCOL_PARAM_VALUE_INTEGER_VALUE:
-            pkt.value.integer_value = p->value;
+            pkt.value.integer_value = *p->value;
+            break;
+        case UAVCAN_PROTOCOL_PARAM_VALUE_BOOLEAN_VALUE:
+            pkt.value.integer_value = *p->value;
             break;
         case UAVCAN_PROTOCOL_PARAM_VALUE_REAL_VALUE:
-            pkt.value.real_value = p->value;
+            pkt.value.real_value = *p->value;
             break;
         default:
             return;
@@ -268,7 +315,7 @@ static void handle_GetNodeInfo(CanardInstance *ins, CanardRxTransfer *transfer)
 
     getUniqueID(pkt.hardware_version.unique_id);
 
-    strncpy((char*)pkt.name.data, "ESCNode", sizeof(pkt.name.data));
+    strncpy((char*)pkt.name.data, "ExampleESCNode", sizeof(pkt.name.data));
     pkt.name.len = strnlen((char*)pkt.name.data, sizeof(pkt.name.data));
 
     uint16_t total_size = uavcan_protocol_GetNodeInfoResponse_encode(&pkt, buffer);
@@ -293,14 +340,13 @@ static void handle_RawCommand(CanardInstance *ins, CanardRxTransfer *transfer)
     if (uavcan_equipment_esc_RawCommand_decode(transfer, &cmd)) {
         return;
     }
-    // remember the demand for the ESC status output
-    const uint8_t num_throttles = MIN(cmd.cmd.len, NUM_ESCS);
-    const uint64_t tnow = micros64();
-    for (uint8_t i=0; i<num_throttles; i++) {
-        // convert throttle to -1.0 to 1.0 range
-        escs[i].throttle = cmd.cmd.data[i]/8192.0;
-        escs[i].last_update_us = tnow;
+    // see if it is for us
+    if (cmd.cmd.len <= settings.esc_index) {
+        return;
     }
+    // convert throttle to -1.0 to 1.0 range
+    esc.throttle = cmd.cmd.data[(unsigned)settings.esc_index]/8192.0;
+    esc.last_update_us = micros64();
 }
 
 /*
@@ -553,35 +599,32 @@ static void process1HzTasks(uint64_t timestamp_usec)
 */
 static void send_ESCStatus(void)
 {
-    // send a separate status packet for each ESC
-    for (uint8_t i=0; i<NUM_ESCS; i++) {
-        struct uavcan_equipment_esc_Status pkt;
-        memset(&pkt, 0, sizeof(pkt));
-        uint8_t buffer[UAVCAN_EQUIPMENT_ESC_STATUS_MAX_SIZE];
+    struct uavcan_equipment_esc_Status pkt;
+    memset(&pkt, 0, sizeof(pkt));
+    uint8_t buffer[UAVCAN_EQUIPMENT_ESC_STATUS_MAX_SIZE];
 
-        // make up some synthetic status data
-        pkt.error_count = 0;
-        pkt.voltage = 16.8 - 2.0 * escs[i].throttle;
-        pkt.current = 20 * escs[i].throttle;
-        pkt.temperature = C_TO_KELVIN(25.0);
-        pkt.rpm = 10000 * escs[i].throttle;
-        pkt.power_rating_pct = 100.0 * escs[i].throttle;
+    // make up some synthetic status data
+    pkt.error_count = 0;
+    pkt.voltage = 16.8 - 2.0 * esc.throttle;
+    pkt.current = 20 * esc.throttle;
+    pkt.temperature = C_TO_KELVIN(25.0);
+    pkt.rpm = 10000 * esc.throttle;
+    pkt.power_rating_pct = 100.0 * esc.throttle;
 
-        uint32_t len = uavcan_equipment_esc_Status_encode(&pkt, buffer);
+    uint32_t len = uavcan_equipment_esc_Status_encode(&pkt, buffer);
 
-        // we need a static variable for the transfer ID. This is
-        // incremeneted on each transfer, allowing for detection of packet
-        // loss
-        static uint8_t transfer_id;
+    // we need a static variable for the transfer ID. This is
+    // incremeneted on each transfer, allowing for detection of packet
+    // loss
+    static uint8_t transfer_id;
 
-        canardBroadcast(&canard,
-                        UAVCAN_EQUIPMENT_ESC_STATUS_SIGNATURE,
-                        UAVCAN_EQUIPMENT_ESC_STATUS_ID,
-                        &transfer_id,
-                        CANARD_TRANSFER_PRIORITY_LOW,
-                        buffer,
-                        len);
-    }
+    canardBroadcast(&canard,
+                    UAVCAN_EQUIPMENT_ESC_STATUS_SIGNATURE,
+                    UAVCAN_EQUIPMENT_ESC_STATUS_ID,
+                    &transfer_id,
+                    CANARD_TRANSFER_PRIORITY_LOW,
+                    buffer,
+                    len);
 }
 
 
@@ -632,6 +675,8 @@ int main(int argc, char** argv)
                       argv[0]);
         return 1;
     }
+
+    load_settings();
 
     /*
      * Initializing the CAN backend driver; in this example we're using SocketCAN
