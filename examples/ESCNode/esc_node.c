@@ -10,9 +10,11 @@
    - sends ESC Status messages (with synthetic data based on throttles)
    - a parameter server for reading and writing node parameters
 
-  This example uses socketcan on Linux for CAN transport
+  This example uses socketcan or multicast UDP on Linux for CAN transport
 
-  Example usage: ./esc_node vcan0
+  Example usage:
+     ./esc_node vcan0
+     ./esc_node mcast:0
 */
 /*
  This example application is distributed under the terms of CC0 (public domain dedication).
@@ -24,7 +26,7 @@
 #endif
 
 #include <canard.h>
-#include <socketcan.h>
+#include <linux.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -631,11 +633,11 @@ static void send_ESCStatus(void)
 /*
   Transmits all frames from the TX queue, receives up to one frame.
 */
-static void processTxRxOnce(SocketCANInstance *socketcan, int32_t timeout_msec)
+static void processTxRxOnce(LinuxCANInstance *can, int32_t timeout_msec)
 {
     // Transmitting
     for (const CanardCANFrame* txf = NULL; (txf = canardPeekTxQueue(&canard)) != NULL;) {
-        const int16_t tx_res = socketcanTransmit(socketcan, txf, 0);
+        const int16_t tx_res = LinuxCANTransmit(can, txf, 0);
         if (tx_res < 0) {         // Failure - drop the frame
             canardPopTxQueue(&canard);
         }
@@ -653,7 +655,7 @@ static void processTxRxOnce(SocketCANInstance *socketcan, int32_t timeout_msec)
     CanardCANFrame rx_frame;
 
     const uint64_t timestamp = micros64();
-    const int16_t rx_res = socketcanReceive(socketcan, &rx_frame, timeout_msec);
+    const int16_t rx_res = LinuxCANReceive(can, &rx_frame, timeout_msec);
     if (rx_res < 0) {
         (void)fprintf(stderr, "Receive error %d, errno '%s'\n", rx_res, strerror(errno));
     }
@@ -679,11 +681,11 @@ int main(int argc, char** argv)
     load_settings();
 
     /*
-     * Initializing the CAN backend driver; in this example we're using SocketCAN
+     * Initializing the CAN backend driver
      */
-    SocketCANInstance socketcan;
+    LinuxCANInstance can;
     const char* const can_iface_name = argv[1];
-    int16_t res = socketcanInit(&socketcan, can_iface_name);
+    int16_t res = LinuxCANInit(&can, can_iface_name);
     if (res < 0) {
         (void)fprintf(stderr, "Failed to open CAN iface '%s'\n", can_iface_name);
         return 1;
@@ -712,7 +714,7 @@ int main(int argc, char** argv)
     uint64_t next_50hz_service_at = micros64();
 
     while (true) {
-        processTxRxOnce(&socketcan, 10);
+        processTxRxOnce(&can, 10);
 
         const uint64_t ts = micros64();
 

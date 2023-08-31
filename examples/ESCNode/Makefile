@@ -2,12 +2,14 @@
 CANARD_BASE=../..
 
 CC=gcc
-CFLAGS = -g -Wall -Idsdl_generated/include -I$(CANARD_BASE) -I$(CANARD_BASE)/drivers/socketcan
+CFLAGS = -g -Wall -Idsdl_generated/include -I$(CANARD_BASE) -I$(CANARD_BASE)/drivers/linux
 
 LIBS=$(CANARD_BASE)/canard.c
 
-# add socketcan driver for linux
+# add socketcan and multicast drivers for linux
 LIBS+=$(CANARD_BASE)/drivers/socketcan/socketcan.c
+LIBS+=$(CANARD_BASE)/drivers/mcast/mcast.c
+LIBS+=$(CANARD_BASE)/drivers/linux/linux.c
 
 # add in generated code
 LIBS+=dsdl_generated/src/uavcan.protocol.NodeStatus.c
