@@ -18,8 +18,18 @@ You may need to install the following before building:
 
 ## Running Examples
 
-Before you run the examples you need to start socketcan on Linux. See
-the setup_socketcan.sh script in this directory for starting socketcan
+The examples can use either socketcan or multicast UDP as the
+transport on Linux.
+
+To run with multicast UDP you can start like this:
+
+```
+ ./esc_node mcast:0
+```
+
+If you want to use socketcan then you need to start socketcan on
+Linux. See the setup_socketcan.sh script in this directory for
+starting socketcan
 
 ![setup_socketcan.sh](setup_socketcan.jpg "setup_socketcan.sh")
 
