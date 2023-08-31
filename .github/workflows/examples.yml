@@ -25,6 +25,3 @@ jobs:
     - name: build ESCNode C++
       working-directory: ${{github.workspace}}/examples/ESCNode_C++
       run: make
-    - name: build ESCNode UDP
-      working-directory: ${{github.workspace}}/examples/ESCNode_UDP
-      run: make
