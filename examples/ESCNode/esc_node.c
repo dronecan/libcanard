@@ -699,8 +699,8 @@ int main(int argc, char** argv)
                shouldAcceptTransfer,
                NULL);
 
-    if (MY_NODE_ID > 0) {
-        canardSetLocalNodeID(&canard, MY_NODE_ID);
+    if (settings.can_node > 0) {
+        canardSetLocalNodeID(&canard, settings.can_node);
     } else {
         printf("Waiting for DNA node allocation\n");
     }
