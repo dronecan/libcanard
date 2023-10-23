@@ -36,9 +36,9 @@ public:
     /// @brief Client constructor
     /// @param _interface Interface object
     /// @param _cb Callback object
-    Client(Interface &_interface, Callback<rsptype> &_cb) :
+    Client(Interface &_interface, Callback<rsptype> &_cb, uint32_t _iface_mask = CANARD_IFACE_ALL) :
     HandlerList(CanardTransferTypeResponse, rsptype::cxx_iface::ID, rsptype::cxx_iface::SIGNATURE, _interface.get_index()),
-    Sender(_interface),
+    Sender(_interface, _iface_mask),
     server_node_id(255),
     cb(_cb) {
         next = branch_head[index];
@@ -120,7 +120,7 @@ public:
         req_transfer.canfd = canfd;
 #endif
 #if CANARD_MULTI_IFACE
-        req_transfer.iface_mask = CANARD_IFACE_ALL;
+        req_transfer.iface_mask = iface_mask;
 #endif
         transfer_id = *TransferObject::get_tid_ptr(interface.get_index(), rsptype::cxx_iface::ID, CanardTransferTypeRequest, interface.get_node_id(), destination_node_id);
         server_node_id = destination_node_id;

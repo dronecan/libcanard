@@ -32,8 +32,9 @@ namespace Canard {
 /// @brief Base class for data senders using Transfer Object, such as publishers and requesters
 class Sender {
 public:
-    Sender(Interface &_interface) :
-    interface(_interface)
+    Sender(Interface &_interface, uint32_t _iface_mask = CANARD_IFACE_ALL) :
+    interface(_interface),
+    iface_mask(_iface_mask)
     {}
 
     // delete copy constructor and assignment operator
@@ -74,6 +75,10 @@ protected:
             return false;
         }
     }
+protected:
+#if CANARD_MULTI_IFACE
+    uint32_t iface_mask; ///< Mask of the interface to send the message on
+#endif
 private:
     uint8_t priority = CANARD_TRANSFER_PRIORITY_MEDIUM; ///< Priority of the message
     uint32_t timeout = 1000; ///< Timeout of the message in ms
@@ -82,8 +87,8 @@ private:
 template <typename msgtype>
 class Publisher : public Sender {
 public:
-    Publisher(Interface &_interface) :
-    Sender(_interface)
+    Publisher(Interface &_interface, uint32_t _iface_mask = CANARD_IFACE_ALL) :
+    Sender(_interface, _iface_mask)
     {}
 
     // delete copy constructor and assignment operator
@@ -126,7 +131,7 @@ public:
             msg_transfer.canfd = canfd;
 #endif
 #if CANARD_MULTI_IFACE
-            msg_transfer.iface_mask = CANARD_IFACE_ALL;
+            msg_transfer.iface_mask = iface_mask;
 #endif
             return send(msg_transfer);
         }
