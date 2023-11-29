@@ -291,6 +291,16 @@ static void handle_param_ExecuteOpcode(CanardInstance* ins, CanardRxTransfer* tr
 }
 
 /*
+  handle RestartNode request
+ */
+static void handle_RestartNode(CanardInstance* ins, CanardRxTransfer* transfer)
+{
+    // the ESC should reboot now!
+    printf("Rebooting!!!\n");
+    exit(0);
+}
+
+/*
   handle a GetNodeInfo request
 */
 static void handle_GetNodeInfo(CanardInstance *ins, CanardRxTransfer *transfer)
@@ -482,6 +492,10 @@ static void onTransferReceived(CanardInstance *ins, CanardRxTransfer *transfer)
             handle_param_ExecuteOpcode(ins, transfer);
             break;
         }
+        case UAVCAN_PROTOCOL_RESTARTNODE_ID: {
+            handle_RestartNode(ins, transfer);
+            break;
+        }
         }
     }
     if (transfer->transfer_type == CanardTransferTypeBroadcast) {
@@ -528,6 +542,10 @@ static bool shouldAcceptTransfer(const CanardInstance *ins,
         }
         case UAVCAN_PROTOCOL_PARAM_EXECUTEOPCODE_ID: {
             *out_data_type_signature = UAVCAN_PROTOCOL_PARAM_EXECUTEOPCODE_SIGNATURE;
+            return true;
+        }
+        case UAVCAN_PROTOCOL_RESTARTNODE_ID: {
+            *out_data_type_signature = UAVCAN_PROTOCOL_RESTARTNODE_SIGNATURE;
             return true;
         }
         }
