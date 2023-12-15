@@ -12,7 +12,7 @@ jobs:
     - name: Install Dependencies
       run: |
         uname -a
-        sudo pip install empy pydronecan pexpect
+        sudo pip install empy==3.3.4 pydronecan pexpect
     - name: build SimpleNode
       working-directory: ${{github.workspace}}/examples/SimpleNode
       run: make
