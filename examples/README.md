@@ -13,7 +13,7 @@ and type 'make'
 
 You may need to install the following before building:
 ```
-  sudo pip install empy pydronecan pexpect
+  sudo pip install empy==3.3.4 pydronecan pexpect
 ```
 
 ## Running Examples
