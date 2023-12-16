@@ -21,6 +21,7 @@
 #include <netpacket/can.h>
 #else
 #include <linux/can.h>
+#include <linux/can/raw.h>
 #endif
 #include <errno.h>
 #include <stdlib.h>
