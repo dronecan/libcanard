@@ -68,7 +68,9 @@ public:
 protected:
     uint8_t index;
     HandlerList* next;
-
+#ifdef CANARD_MUTEX_ENABLED
+    Canard::Semaphore& get_sem() { return sem[index]; }
+#endif
 private:
     static HandlerList* head[CANARD_NUM_HANDLERS];
 #ifdef CANARD_MUTEX_ENABLED
