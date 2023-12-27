@@ -41,7 +41,7 @@ public:
     Subscriber(Callback<msgtype> &_cb, uint8_t _index) :
     HandlerList(CanardTransferTypeBroadcast, msgtype::cxx_iface::ID, msgtype::cxx_iface::SIGNATURE, _index),
     cb (_cb) {
-#ifdef WITH_SEMAPHORE
+#ifdef CANARD_MUTEX_ENABLED
         WITH_SEMAPHORE(sem[index]);
 #endif
         next = branch_head[index];
@@ -86,14 +86,19 @@ public:
 private:
     Subscriber<msgtype>* next;
     static Subscriber<msgtype> *branch_head[CANARD_NUM_HANDLERS];
-#ifdef WITH_SEMAPHORE
-    Canard::Semaphore sem[CANARD_NUM_HANDLERS];
+#ifdef CANARD_MUTEX_ENABLED
+    static Canard::Semaphore sem[CANARD_NUM_HANDLERS];
 #endif
     Callback<msgtype> &cb;
 };
 
 template <typename msgtype>
 Subscriber<msgtype>* Subscriber<msgtype>::branch_head[] = {nullptr};
+
+#ifdef CANARD_MUTEX_ENABLED
+template <typename msgtype>
+Canard::Semaphore Subscriber<msgtype>::sem[CANARD_NUM_HANDLERS];
+#endif
 
 template <typename T, typename msgtype>
 class SubscriberArgCb {

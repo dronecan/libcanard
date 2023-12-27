@@ -24,13 +24,37 @@
 #pragma once
 #include "handler_list.h"
 #include "interface.h"
+#include "callbacks.h"
 
 namespace Canard {
+
+class ServerBase : public HandlerList {
+public:
+    ServerBase(Interface &_interface, uint16_t _msgid, uint64_t _signature);
+    bool respond(const CanardRxTransfer& transfer,
+                uint16_t data_type_id,
+                uint64_t data_type_signature,
+                uint8_t* rsp_buf,
+                uint32_t len);
+
+    /// @brief Set the timeout for the response
+    /// @param _timeout timeout in milliseconds
+    void set_timeout_ms(uint32_t _timeout) {
+        timeout = _timeout;
+    }
+protected:
+    uint8_t transfer_id = 0;
+    uint32_t timeout = 1000;
+    Interface &interface;
+#if CANARD_MULTI_IFACE
+    uint8_t iface_mask = CANARD_IFACE_ALL;
+#endif
+};
 
 /// @brief Server class to handle service requests
 /// @tparam reqtype 
 template <typename reqtype>
-class Server : public HandlerList {
+class Server : public ServerBase {
 
 public:
     /// @brief Server constructor
@@ -38,8 +62,7 @@ public:
     /// @param _cb Callback object
     /// @param _index HandlerList instance id
     Server(Interface &_interface, Callback<reqtype> &_cb) : 
-    HandlerList(CanardTransferTypeRequest, reqtype::cxx_iface::ID, reqtype::cxx_iface::SIGNATURE, _interface.get_index()),
-    interface(_interface),
+    ServerBase(_interface, reqtype::cxx_iface::ID, reqtype::cxx_iface::SIGNATURE),
     cb(_cb) {
         // multiple servers are not allowed, so no list
     }
@@ -74,43 +97,15 @@ public:
 #endif
         );
         // send the message if encoded successfully
-        if (len > 0) {
-            Transfer rsp_transfer;
-#if CANARD_ENABLE_CANFD
-            rsp_transfer.canfd = transfer.canfd;
-#endif
-#if CANARD_MULTI_IFACE
-            rsp_transfer.iface_mask = iface_mask;
-#endif
-            rsp_transfer.transfer_type = CanardTransferTypeResponse;
-            rsp_transfer.inout_transfer_id = &transfer_id;
-            rsp_transfer.data_type_id = reqtype::cxx_iface::ID;
-            rsp_transfer.data_type_signature = reqtype::cxx_iface::SIGNATURE;
-            rsp_transfer.payload = rsp_buf;
-            rsp_transfer.payload_len = len;
-            rsp_transfer.priority = transfer.priority;
-            rsp_transfer.timeout_ms = timeout;
-            return interface.respond(transfer.source_node_id, rsp_transfer);
-        }
-        return false;
-    }
-
-    /// @brief Set the timeout for the response
-    /// @param _timeout timeout in milliseconds
-    void set_timeout_ms(uint32_t _timeout) {
-        timeout = _timeout;
+        return ServerBase::respond(transfer, reqtype::cxx_iface::ID,
+                    reqtype::cxx_iface::SIGNATURE,
+                    (uint8_t*)rsp_buf,
+                    len);
     }
 
 private:
     uint8_t rsp_buf[reqtype::cxx_iface::RSP_MAX_SIZE];
-    Interface &interface;
     Callback<reqtype> &cb;
-
-    uint32_t timeout = 1000;
-    uint8_t transfer_id = 0;
-#if CANARD_MULTI_IFACE
-    uint8_t iface_mask = CANARD_IFACE_ALL;
-#endif
 };
 
 } // namespace Canard

@@ -40,8 +40,12 @@ struct Transfer {
     uint8_t priority; ///< Priority of the transfer
     const void* payload; ///< Pointer to the payload
     uint32_t payload_len; ///< Length of the payload
+#if CANARD_MULTI_IFACE
     uint8_t iface_mask; ///< Bitmask of interfaces to send the transfer on
+#endif
+#if CANARD_ENABLE_CANFD
     bool canfd; ///< true if the transfer is CAN FD
+#endif
     uint32_t timeout_ms; ///< timeout in ms
 };
 
