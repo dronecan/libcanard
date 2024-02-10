@@ -68,7 +68,10 @@ public:
     /// @param transfer transfer object of the request
     void handle_message(const CanardRxTransfer& transfer) override {
         rsptype msg {};
-        rsptype::cxx_iface::rsp_decode(&transfer, &msg);
+        if (rsptype::cxx_iface::rsp_decode(&transfer, &msg)) {
+            // invalid decode
+            return;
+        }
 
         // scan through the list of entries for corresponding server node id and transfer id
         Client<rsptype>* entry = branch_head[index];

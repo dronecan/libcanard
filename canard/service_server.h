@@ -51,7 +51,10 @@ public:
     /// @param transfer transfer object of the request
     void handle_message(const CanardRxTransfer& transfer) override {
         reqtype msg {};
-        reqtype::cxx_iface::req_decode(&transfer, &msg);
+        if (reqtype::cxx_iface::req_decode(&transfer, &msg)) {
+            // invalid decode
+            return;
+        }
         transfer_id = transfer.transfer_id;
         // call the registered callback
         cb(transfer, msg);
