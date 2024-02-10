@@ -544,6 +544,7 @@ int16_t canardHandleRxFrame(CanardInstance* ins, const CanardCANFrame* frame, ui
 
         // take off the crc and store the payload
         rx_state->timestamp_usec = timestamp_usec;
+        rx_state->payload_len = 0;
         const int16_t ret = bufferBlockPushBytes(&ins->allocator, rx_state, frame->data + 2,
                                                  (uint8_t) (frame->data_len - 3));
         if (ret < 0)
