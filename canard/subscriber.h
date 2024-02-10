@@ -71,7 +71,10 @@ public:
     /// @param transfer transfer object
     void handle_message(const CanardRxTransfer& transfer) override {
         msgtype msg {};
-        msgtype::cxx_iface::decode(&transfer, &msg);
+        if (msgtype::cxx_iface::decode(&transfer, &msg)) {
+            // invalid decode
+            return;
+        }
         // call all registered callbacks in one go
         Subscriber<msgtype>* entry = branch_head[index];
         while (entry != nullptr) {
