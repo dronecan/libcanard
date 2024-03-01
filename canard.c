@@ -101,7 +101,7 @@ void canardInit(CanardInstance* out_ins,
     initPoolAllocator(&out_ins->allocator, mem_arena, (uint16_t)pool_capacity);
 }
 
-void* canardGetUserReference(CanardInstance* ins)
+void* canardGetUserReference(const CanardInstance* ins)
 {
     CANARD_ASSERT(ins != NULL);
     return ins->user_reference;
