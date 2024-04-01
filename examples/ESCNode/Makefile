@@ -21,6 +21,10 @@ LIBS+=dsdl_generated/src/uavcan.protocol.param.GetSet_req.c
 LIBS+=dsdl_generated/src/uavcan.protocol.param.GetSet_res.c
 LIBS+=dsdl_generated/src/uavcan.protocol.param.ExecuteOpcode_req.c
 LIBS+=dsdl_generated/src/uavcan.protocol.param.ExecuteOpcode_res.c
+LIBS+=dsdl_generated/src/uavcan.protocol.file.BeginFirmwareUpdate_req.c
+LIBS+=dsdl_generated/src/uavcan.protocol.file.BeginFirmwareUpdate_res.c
+LIBS+=dsdl_generated/src/uavcan.protocol.file.Read_req.c
+LIBS+=dsdl_generated/src/uavcan.protocol.file.Read_res.c
 
 all: esc_node
 
