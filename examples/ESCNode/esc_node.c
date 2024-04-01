@@ -1,7 +1,7 @@
 /*
   A simple example DroneCAN node implementing a 4-in-1 ESC
 
-  This example implements 6 features:
+  This example implements 7 features:
 
    - announces on the bus using NodeStatus at 1Hz
    - answers GetNodeInfo requests
@@ -9,6 +9,7 @@
    - listens for ESC RawCommand commands and extracts throttle levels
    - sends ESC Status messages (with synthetic data based on throttles)
    - a parameter server for reading and writing node parameters
+   - firmware update
 
   This example uses socketcan or multicast UDP on Linux for CAN transport
 
@@ -68,6 +69,18 @@ static struct esc_state {
     float throttle;
     uint64_t last_update_us;
 } esc;
+
+/*
+  keep the state for firmware update
+ */
+static struct {
+    char path[256];
+    uint8_t node_id;
+    uint8_t transfer_id;
+    uint32_t last_read_ms;
+    int fd;
+    uint32_t offset;
+} fwupdate;
 
 /*
   state of user settings. This will be saved in settings.dat. On a
@@ -164,6 +177,8 @@ static void save_settings(void)
  */
 static void load_settings(void)
 {
+    fwupdate.fd = -1;
+
     int fd = open("settings.dat", O_RDONLY);
     if (fd == -1) {
         return;
@@ -393,7 +408,10 @@ static void handle_DNA_Allocation(CanardInstance *ins, CanardRxTransfer *transfe
     // Copying the unique ID from the message
     struct uavcan_protocol_dynamic_node_id_Allocation msg;
 
-    uavcan_protocol_dynamic_node_id_Allocation_decode(transfer, &msg);
+    if (uavcan_protocol_dynamic_node_id_Allocation_decode(transfer, &msg)) {
+	/* bad packet */
+	return;
+    }
 
     // Obtaining the local unique ID
     uint8_t my_unique_id[sizeof(msg.unique_id.data)];
@@ -472,6 +490,170 @@ static void request_DNA()
 
 
 /*
+  handle a BeginFirmwareUpdate request from a management tool like DroneCAN GUI tool or MissionPlanner
+
+  There are multiple ways to handle firmware update over DroneCAN:
+
+    1) on BeginFirmwareUpdate reboot to the bootloader, and implement
+       the firmware upudate process in the bootloader. This is good on
+       boards with smaller amounts of flash
+
+    2) if you have enough flash for 2 copies of your firmware then you
+       can use an A/B scheme, where the new firmware is saved to the
+       inactive flash region and a tag is used to indicate which
+       firmware to boot next time
+
+    3) you could write the firmware to secondary storage (such as a
+       microSD) and the bootloader would flash it on next boot
+
+    In this example firmware we will write it to a file
+    newfirmware.bin, which is option 3
+
+    Note that you cannot rely on the form of the filename. The client
+    may hash the filename before sending
+ */
+static void handle_begin_firmware_update(CanardInstance* ins, CanardRxTransfer* transfer)
+{
+    /*
+      on real hardware this is where you would save the current node
+      ID to some piece of memory that is not cleared by reboot so the
+      bootloader knows what node number to use. Most MCUs have some
+      registers (eg. RTC/backup registers) that can be used for that
+      purpose.
+     */
+
+    /*
+      decode the request
+     */
+    struct uavcan_protocol_file_BeginFirmwareUpdateRequest req;
+    if (uavcan_protocol_file_BeginFirmwareUpdateRequest_decode(transfer, &req)) {
+        return;
+    }
+
+    /*
+      check for a repeated BeginFirmwareUpdateRequest
+     */
+    if (fwupdate.node_id == transfer->source_node_id &&
+	fwupdate.fd != -1 &&
+	memcmp(fwupdate.path, req.image_file_remote_path.path.data, req.image_file_remote_path.path.len) == 0) {
+	/* ignore duplicate request */
+	return;
+    }
+
+
+    /*
+      open the file to hold the new firmware
+     */
+    if (fwupdate.fd != -1) {
+	close(fwupdate.fd);
+    }
+    fwupdate.fd = open("newfirmware.bin", O_WRONLY|O_CREAT|O_TRUNC, 0644);
+    if (fwupdate.fd == -1) {
+	printf("Open of newfirmware.bin failed\n");
+	return;
+    }
+
+    fwupdate.offset = 0;
+    fwupdate.node_id = transfer->source_node_id;
+    strncpy(fwupdate.path, (char*)req.image_file_remote_path.path.data, req.image_file_remote_path.path.len);
+
+    uint8_t buffer[UAVCAN_PROTOCOL_FILE_BEGINFIRMWAREUPDATE_RESPONSE_MAX_SIZE];
+    struct uavcan_protocol_file_BeginFirmwareUpdateResponse reply;
+    memset(&reply, 0, sizeof(reply));
+    reply.error = UAVCAN_PROTOCOL_FILE_BEGINFIRMWAREUPDATE_RESPONSE_ERROR_OK;
+
+    uint32_t total_size = uavcan_protocol_file_BeginFirmwareUpdateResponse_encode(&reply, buffer);
+
+    canardRequestOrRespond(ins,
+                           transfer->source_node_id,
+                           UAVCAN_PROTOCOL_FILE_BEGINFIRMWAREUPDATE_SIGNATURE,
+                           UAVCAN_PROTOCOL_FILE_BEGINFIRMWAREUPDATE_ID,
+                           &transfer->transfer_id,
+                           transfer->priority,
+                           CanardResponse,
+                           &buffer[0],
+                           total_size);
+
+    printf("Started firmware update\n");
+
+    /*
+      this is where you would reboot to the bootloader if implementing option (1) above
+    */
+}
+
+/*
+  send a read for a firmware update. This asks the client (firmware
+  server) for a piece of the new firmware
+ */
+static void send_firmware_read(void)
+{
+    uint32_t now = millis32();
+    if (now - fwupdate.last_read_ms < 750) {
+        // the server may still be responding
+        return;
+    }
+    fwupdate.last_read_ms = now;
+
+    uint8_t buffer[UAVCAN_PROTOCOL_FILE_READ_REQUEST_MAX_SIZE];
+
+    struct uavcan_protocol_file_ReadRequest pkt;
+    memset(&pkt, 0, sizeof(pkt));
+
+    pkt.path.path.len = strlen((const char *)fwupdate.path);
+    pkt.offset = fwupdate.offset;
+    memcpy(pkt.path.path.data, fwupdate.path, pkt.path.path.len);
+
+    uint16_t total_size = uavcan_protocol_file_ReadRequest_encode(&pkt, buffer);
+
+    canardRequestOrRespond(&canard,
+			   fwupdate.node_id,
+                           UAVCAN_PROTOCOL_FILE_READ_SIGNATURE,
+                           UAVCAN_PROTOCOL_FILE_READ_ID,
+			   &fwupdate.transfer_id,
+                           CANARD_TRANSFER_PRIORITY_HIGH,
+                           CanardRequest,
+                           &buffer[0],
+                           total_size);
+}
+
+/*
+  handle response to send_firmware_read()
+ */
+static void handle_file_read_response(CanardInstance* ins, CanardRxTransfer* transfer)
+{
+    if ((transfer->transfer_id+1)%32 != fwupdate.transfer_id ||
+	transfer->source_node_id != fwupdate.node_id) {
+	/* not for us */
+	printf("Firmware update: not for us id=%u/%u\n", (unsigned)transfer->transfer_id, (unsigned)fwupdate.transfer_id);
+	return;
+    }
+    struct uavcan_protocol_file_ReadResponse pkt;
+    if (uavcan_protocol_file_ReadResponse_decode(transfer, &pkt)) {
+	/* bad packet */
+	printf("Firmware update: bad packet\n");
+	return;
+    }
+    if (pkt.error.value != UAVCAN_PROTOCOL_FILE_ERROR_OK) {
+	/* read failed */
+	fwupdate.node_id = 0;
+	printf("Firmware update read failure\n");
+	return;
+    }
+    write(fwupdate.fd, pkt.data.data, pkt.data.len);
+    if (pkt.data.len < 256) {
+	/* firmware updare done */
+	close(fwupdate.fd);
+	printf("Firmwate update complete\n");
+	fwupdate.node_id = 0;
+	return;
+    }
+    fwupdate.offset += pkt.data.len;
+
+    /* trigger a new read */
+    fwupdate.last_read_ms = 0;
+}
+
+/*
  This callback is invoked by the library when a new message or request or response is received.
 */
 static void onTransferReceived(CanardInstance *ins, CanardRxTransfer *transfer)
@@ -496,6 +678,16 @@ static void onTransferReceived(CanardInstance *ins, CanardRxTransfer *transfer)
             handle_RestartNode(ins, transfer);
             break;
         }
+	case UAVCAN_PROTOCOL_FILE_BEGINFIRMWAREUPDATE_ID:
+	    handle_begin_firmware_update(ins, transfer);
+	    break;
+	}
+    }
+    if (transfer->transfer_type == CanardTransferTypeResponse) {
+	switch (transfer->data_type_id) {
+	case UAVCAN_PROTOCOL_FILE_READ_ID:
+	    handle_file_read_response(ins, transfer);
+	    break;
         }
     }
     if (transfer->transfer_type == CanardTransferTypeBroadcast) {
@@ -548,7 +740,18 @@ static bool shouldAcceptTransfer(const CanardInstance *ins,
             *out_data_type_signature = UAVCAN_PROTOCOL_RESTARTNODE_SIGNATURE;
             return true;
         }
-        }
+	case UAVCAN_PROTOCOL_FILE_BEGINFIRMWAREUPDATE_ID:
+	    *out_data_type_signature = UAVCAN_PROTOCOL_FILE_BEGINFIRMWAREUPDATE_SIGNATURE;
+	    return true;
+	}
+    }
+    if (transfer_type == CanardTransferTypeResponse) {
+        // check if we want to handle a specific service request
+        switch (data_type_id) {
+	case UAVCAN_PROTOCOL_FILE_READ_ID:
+	    *out_data_type_signature = UAVCAN_PROTOCOL_FILE_READ_SIGNATURE;
+	    return true;
+	}
     }
     if (transfer_type == CanardTransferTypeBroadcast) {
         // see if we want to handle a specific broadcast packet
@@ -579,8 +782,18 @@ static void send_NodeStatus(void)
     node_status.health = UAVCAN_PROTOCOL_NODESTATUS_HEALTH_OK;
     node_status.mode = UAVCAN_PROTOCOL_NODESTATUS_MODE_OPERATIONAL;
     node_status.sub_mode = 0;
+
     // put whatever you like in here for display in GUI
     node_status.vendor_specific_status_code = 1234;
+
+    /*
+      when doing a firmware update put the size in kbytes in VSSC so
+      the user can see how far it has reached
+     */
+    if (fwupdate.node_id != 0) {
+	node_status.vendor_specific_status_code = fwupdate.offset / 1024;
+	node_status.mode = UAVCAN_PROTOCOL_NODESTATUS_MODE_SOFTWARE_UPDATE;
+    }
 
     uint32_t len = uavcan_protocol_NodeStatus_encode(&node_status, buffer);
 
@@ -756,7 +969,11 @@ int main(int argc, char** argv)
         if (ts >= next_50hz_service_at) {
             next_50hz_service_at += 1000000ULL/50U;
             send_ESCStatus();
-        }
+	}
+
+	if (fwupdate.node_id != 0) {
+	    send_firmware_read();
+	}
     }
 
     return 0;
