@@ -24,7 +24,7 @@
 #endif
 
 #include <canard.h>
-#include <socketcan.h>
+#include <linux.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,6 +33,10 @@
 #include <assert.h>
 #include <errno.h>
 #include <stdbool.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 // include the headers for the generated DroneCAN messages from the
 // dronecan_dsdlc compiler
@@ -63,6 +67,18 @@ static struct servo_state {
     float position; // -1 to 1
     uint64_t last_update_us;
 } servos[NUM_SERVOS];
+
+/*
+  keep the state for firmware update
+ */
+static struct {
+    char path[256];
+    uint8_t node_id;
+    uint8_t transfer_id;
+    uint32_t last_read_ms;
+    int fd;
+    uint32_t offset;
+} fwupdate;
 
 /*
   a set of parameters to present to the user. In this example we don't
@@ -422,6 +438,169 @@ static void request_DNA()
     DNA.node_id_allocation_unique_id_offset = 0;
 }
 
+/*
+  handle a BeginFirmwareUpdate request from a management tool like DroneCAN GUI tool or MissionPlanner
+
+  There are multiple ways to handle firmware update over DroneCAN:
+
+    1) on BeginFirmwareUpdate reboot to the bootloader, and implement
+       the firmware upudate process in the bootloader. This is good on
+       boards with smaller amounts of flash
+
+    2) if you have enough flash for 2 copies of your firmware then you
+       can use an A/B scheme, where the new firmware is saved to the
+       inactive flash region and a tag is used to indicate which
+       firmware to boot next time
+
+    3) you could write the firmware to secondary storage (such as a
+       microSD) and the bootloader would flash it on next boot
+
+    In this example firmware we will write it to a file
+    newfirmware.bin, which is option 3
+
+    Note that you cannot rely on the form of the filename. The client
+    may hash the filename before sending
+ */
+static void handle_begin_firmware_update(CanardInstance* ins, CanardRxTransfer* transfer)
+{
+    /*
+      on real hardware this is where you would save the current node
+      ID to some piece of memory that is not cleared by reboot so the
+      bootloader knows what node number to use. Most MCUs have some
+      registers (eg. RTC/backup registers) that can be used for that
+      purpose.
+     */
+
+    /*
+      decode the request
+     */
+    struct uavcan_protocol_file_BeginFirmwareUpdateRequest req;
+    if (uavcan_protocol_file_BeginFirmwareUpdateRequest_decode(transfer, &req)) {
+        return;
+    }
+
+    /*
+      check for a repeated BeginFirmwareUpdateRequest
+     */
+    if (fwupdate.node_id == transfer->source_node_id &&
+	fwupdate.fd != -1 &&
+	memcmp(fwupdate.path, req.image_file_remote_path.path.data, req.image_file_remote_path.path.len) == 0) {
+	/* ignore duplicate request */
+	return;
+    }
+
+
+    /*
+      open the file to hold the new firmware
+     */
+    if (fwupdate.fd != -1) {
+	close(fwupdate.fd);
+    }
+    fwupdate.fd = open("newfirmware.bin", O_WRONLY|O_CREAT|O_TRUNC, 0644);
+    if (fwupdate.fd == -1) {
+	printf("Open of newfirmware.bin failed\n");
+	return;
+    }
+
+    fwupdate.offset = 0;
+    fwupdate.node_id = transfer->source_node_id;
+    strncpy(fwupdate.path, (char*)req.image_file_remote_path.path.data, req.image_file_remote_path.path.len);
+
+    uint8_t buffer[UAVCAN_PROTOCOL_FILE_BEGINFIRMWAREUPDATE_RESPONSE_MAX_SIZE];
+    struct uavcan_protocol_file_BeginFirmwareUpdateResponse reply;
+    memset(&reply, 0, sizeof(reply));
+    reply.error = UAVCAN_PROTOCOL_FILE_BEGINFIRMWAREUPDATE_RESPONSE_ERROR_OK;
+
+    uint32_t total_size = uavcan_protocol_file_BeginFirmwareUpdateResponse_encode(&reply, buffer);
+
+    canardRequestOrRespond(ins,
+                           transfer->source_node_id,
+                           UAVCAN_PROTOCOL_FILE_BEGINFIRMWAREUPDATE_SIGNATURE,
+                           UAVCAN_PROTOCOL_FILE_BEGINFIRMWAREUPDATE_ID,
+                           &transfer->transfer_id,
+                           transfer->priority,
+                           CanardResponse,
+                           &buffer[0],
+                           total_size);
+
+    printf("Started firmware update\n");
+
+    /*
+      this is where you would reboot to the bootloader if implementing option (1) above
+    */
+}
+
+/*
+  send a read for a firmware update. This asks the client (firmware
+  server) for a piece of the new firmware
+ */
+static void send_firmware_read(void)
+{
+    uint32_t now = millis32();
+    if (now - fwupdate.last_read_ms < 750) {
+        // the server may still be responding
+        return;
+    }
+    fwupdate.last_read_ms = now;
+
+    uint8_t buffer[UAVCAN_PROTOCOL_FILE_READ_REQUEST_MAX_SIZE];
+
+    struct uavcan_protocol_file_ReadRequest pkt;
+    memset(&pkt, 0, sizeof(pkt));
+
+    pkt.path.path.len = strlen((const char *)fwupdate.path);
+    pkt.offset = fwupdate.offset;
+    memcpy(pkt.path.path.data, fwupdate.path, pkt.path.path.len);
+
+    uint16_t total_size = uavcan_protocol_file_ReadRequest_encode(&pkt, buffer);
+
+    canardRequestOrRespond(&canard,
+			   fwupdate.node_id,
+                           UAVCAN_PROTOCOL_FILE_READ_SIGNATURE,
+                           UAVCAN_PROTOCOL_FILE_READ_ID,
+			   &fwupdate.transfer_id,
+                           CANARD_TRANSFER_PRIORITY_HIGH,
+                           CanardRequest,
+                           &buffer[0],
+                           total_size);
+}
+
+/*
+  handle response to send_firmware_read()
+ */
+static void handle_file_read_response(CanardInstance* ins, CanardRxTransfer* transfer)
+{
+    if ((transfer->transfer_id+1)%32 != fwupdate.transfer_id ||
+	transfer->source_node_id != fwupdate.node_id) {
+	/* not for us */
+	printf("Firmware update: not for us id=%u/%u\n", (unsigned)transfer->transfer_id, (unsigned)fwupdate.transfer_id);
+	return;
+    }
+    struct uavcan_protocol_file_ReadResponse pkt;
+    if (uavcan_protocol_file_ReadResponse_decode(transfer, &pkt)) {
+	/* bad packet */
+	printf("Firmware update: bad packet\n");
+	return;
+    }
+    if (pkt.error.value != UAVCAN_PROTOCOL_FILE_ERROR_OK) {
+	/* read failed */
+	fwupdate.node_id = 0;
+	printf("Firmware update read failure\n");
+	return;
+    }
+    write(fwupdate.fd, pkt.data.data, pkt.data.len);
+    if (pkt.data.len < 256) {
+	/* firmware updare done */
+	close(fwupdate.fd);
+	printf("Firmwate update complete\n");
+	fwupdate.node_id = 0;
+	return;
+    }
+    fwupdate.offset += pkt.data.len;
+
+    /* trigger a new read */
+    fwupdate.last_read_ms = 0;
+}
 
 /*
  This callback is invoked by the library when a new message or request or response is received.
@@ -444,6 +623,17 @@ static void onTransferReceived(CanardInstance *ins, CanardRxTransfer *transfer)
             handle_param_ExecuteOpcode(ins, transfer);
             break;
         }
+	case UAVCAN_PROTOCOL_FILE_BEGINFIRMWAREUPDATE_ID: {
+	    handle_begin_firmware_update(ins, transfer);
+	    break;
+	}
+	}
+    }
+    if (transfer->transfer_type == CanardTransferTypeResponse) {
+	switch (transfer->data_type_id) {
+	case UAVCAN_PROTOCOL_FILE_READ_ID:
+	    handle_file_read_response(ins, transfer);
+	    break;
         }
     }
     if (transfer->transfer_type == CanardTransferTypeBroadcast) {
@@ -492,7 +682,19 @@ static bool shouldAcceptTransfer(const CanardInstance *ins,
             *out_data_type_signature = UAVCAN_PROTOCOL_PARAM_EXECUTEOPCODE_SIGNATURE;
             return true;
         }
+	case UAVCAN_PROTOCOL_FILE_BEGINFIRMWAREUPDATE_ID: {
+	    *out_data_type_signature = UAVCAN_PROTOCOL_FILE_BEGINFIRMWAREUPDATE_SIGNATURE;
+	    return true;
+	}
         }
+    }
+    if (transfer_type == CanardTransferTypeResponse) {
+        // check if we want to handle a specific service request
+        switch (data_type_id) {
+	case UAVCAN_PROTOCOL_FILE_READ_ID:
+	    *out_data_type_signature = UAVCAN_PROTOCOL_FILE_READ_SIGNATURE;
+	    return true;
+	}
     }
     if (transfer_type == CanardTransferTypeBroadcast) {
         // see if we want to handle a specific broadcast packet
@@ -525,6 +727,15 @@ static void send_NodeStatus(void)
     node_status.sub_mode = 0;
     // put whatever you like in here for display in GUI
     node_status.vendor_specific_status_code = 1234;
+
+    /*
+      when doing a firmware update put the size in kbytes in VSSC so
+      the user can see how far it has reached
+     */
+    if (fwupdate.node_id != 0) {
+	node_status.vendor_specific_status_code = fwupdate.offset / 1024;
+	node_status.mode = UAVCAN_PROTOCOL_NODESTATUS_MODE_SOFTWARE_UPDATE;
+    }
 
     uint32_t len = uavcan_protocol_NodeStatus_encode(&node_status, buffer);
 
@@ -597,11 +808,11 @@ static void send_ServoStatus(void)
 /*
   Transmits all frames from the TX queue, receives up to one frame.
 */
-static void processTxRxOnce(SocketCANInstance *socketcan, int32_t timeout_msec)
+static void processTxRxOnce(LinuxCANInstance *can, int32_t timeout_msec)
 {
     // Transmitting
     for (const CanardCANFrame* txf = NULL; (txf = canardPeekTxQueue(&canard)) != NULL;) {
-        const int16_t tx_res = socketcanTransmit(socketcan, txf, 0);
+        const int16_t tx_res = LinuxCANTransmit(can, txf, 0);
         if (tx_res < 0) {         // Failure - drop the frame
             canardPopTxQueue(&canard);
         }
@@ -619,7 +830,7 @@ static void processTxRxOnce(SocketCANInstance *socketcan, int32_t timeout_msec)
     CanardCANFrame rx_frame;
 
     const uint64_t timestamp = micros64();
-    const int16_t rx_res = socketcanReceive(socketcan, &rx_frame, timeout_msec);
+    const int16_t rx_res = LinuxCANReceive(can, &rx_frame, timeout_msec);
     if (rx_res < 0) {
         (void)fprintf(stderr, "Receive error %d, errno '%s'\n", rx_res, strerror(errno));
     }
@@ -642,12 +853,14 @@ int main(int argc, char** argv)
         return 1;
     }
 
+    fwupdate.fd = -1;
+
     /*
-     * Initializing the CAN backend driver; in this example we're using SocketCAN
+     * Initializing the CAN backend driver
      */
-    SocketCANInstance socketcan;
+    LinuxCANInstance can;
     const char* const can_iface_name = argv[1];
-    int16_t res = socketcanInit(&socketcan, can_iface_name);
+    int16_t res = LinuxCANInit(&can, can_iface_name);
     if (res < 0) {
         (void)fprintf(stderr, "Failed to open CAN iface '%s'\n", can_iface_name);
         return 1;
@@ -676,7 +889,7 @@ int main(int argc, char** argv)
     uint64_t next_25hz_service_at = micros64();
 
     while (true) {
-        processTxRxOnce(&socketcan, 10);
+	processTxRxOnce(&can, 10);
 
         const uint64_t ts = micros64();
 
@@ -701,6 +914,10 @@ int main(int argc, char** argv)
             next_25hz_service_at += 1000000ULL/25U;
             send_ServoStatus();
         }
+
+	if (fwupdate.node_id != 0) {
+	    send_firmware_read();
+	}
     }
 
     return 0;
