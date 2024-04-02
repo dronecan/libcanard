@@ -471,7 +471,7 @@ void canardInit(CanardInstance* out_ins,                    ///< Uninitialized l
  * The user pointer is configured once during initialization.
  * It can be used to store references to any user-specific data, or to link the instance object with C++ objects.
  */
-void* canardGetUserReference(CanardInstance* ins);
+void* canardGetUserReference(const CanardInstance* ins);
 
 /**
  * Assigns a new node ID value to the current node.
