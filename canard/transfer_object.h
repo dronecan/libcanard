@@ -41,7 +41,7 @@ public:
         if (index >= CANARD_NUM_HANDLERS) {
             return nullptr;
         }
-#ifdef WITH_SEMAPHORE
+#ifdef CANARD_MUTEX_ENABLED
         WITH_SEMAPHORE(sem[index]);
 #endif
         uint32_t _transfer_desc = MAKE_TRANSFER_DESCRIPTOR(data_type_id, transfer_type, src_node_id, dst_node_id);
@@ -77,7 +77,7 @@ public:
         if (index >= CANARD_NUM_HANDLERS) {
             return;
         }
-#ifdef WITH_SEMAPHORE
+#ifdef CANARD_MUTEX_ENABLED
         WITH_SEMAPHORE(sem[index]);
 #endif
         TransferObject *tid_map_ptr = tid_map_head[index];
@@ -90,7 +90,7 @@ public:
     }
 private:
     static TransferObject *tid_map_head[CANARD_NUM_HANDLERS];
-#ifdef WITH_SEMAPHORE
+#ifdef CANARD_MUTEX_ENABLED
     static Canard::Semaphore sem[CANARD_NUM_HANDLERS];
 #endif
     TransferObject *next;
