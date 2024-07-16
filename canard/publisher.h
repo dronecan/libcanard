@@ -56,34 +56,34 @@ protected:
     /// @brief Send a message
     /// @param Transfer message to send
     /// @return true if the message was put into the queue successfully
-    bool send(Transfer& transfer, uint8_t destination_node_id = CANARD_BROADCAST_NODE_ID) NOINLINE_FUNC {
-        switch (transfer.transfer_type)
-        {
-        case CanardTransferTypeBroadcast:
-            transfer.inout_transfer_id = TransferObject::get_tid_ptr(interface.get_index(),transfer.data_type_id, CanardTransferTypeBroadcast, interface.get_node_id(), destination_node_id);
-            transfer.priority = priority;
-            transfer.timeout_ms = timeout;
-            return interface.broadcast(transfer);
-        case CanardTransferTypeRequest:
-            transfer.inout_transfer_id = TransferObject::get_tid_ptr(interface.get_index(),transfer.data_type_id, CanardTransferTypeRequest, interface.get_node_id(), destination_node_id);
-            transfer.priority = priority;
-            transfer.timeout_ms = timeout;
-            return interface.request(destination_node_id, transfer);
-        case CanardTransferTypeResponse:
-        default:
-            return false;
-        }
-    }
+    bool send(Transfer& transfer, uint8_t destination_node_id = CANARD_BROADCAST_NODE_ID) NOINLINE_FUNC;
 private:
     uint8_t priority = CANARD_TRANSFER_PRIORITY_MEDIUM; ///< Priority of the message
     uint32_t timeout = 1000; ///< Timeout of the message in ms
 };
 
+class PublisherBase : public Sender {
+public:
+    PublisherBase(Interface &_interface) :
+    Sender(_interface)
+    {}
+
+protected:
+    bool send(uint16_t data_type_id,
+            uint64_t data_type_signature,
+            uint8_t* msg_buf,
+            uint32_t len
+#if CANARD_ENABLE_CANFD
+            , bool canfd
+#endif
+            ) NOINLINE_FUNC;
+};
+
 template <typename msgtype>
-class Publisher : public Sender {
+class Publisher : public PublisherBase {
 public:
     Publisher(Interface &_interface) :
-    Sender(_interface)
+    PublisherBase(_interface)
     {}
 
     // delete copy constructor and assignment operator
@@ -115,22 +115,14 @@ public:
 #endif
         );
         // send the message if encoded successfully
-        if (len > 0) {
-            Transfer msg_transfer {};
-            msg_transfer.transfer_type = CanardTransferTypeBroadcast;
-            msg_transfer.data_type_id = msgtype::cxx_iface::ID;
-            msg_transfer.data_type_signature = msgtype::cxx_iface::SIGNATURE;
-            msg_transfer.payload = msg_buf;
-            msg_transfer.payload_len = len;
+        return PublisherBase::send(msgtype::cxx_iface::ID,
+                    msgtype::cxx_iface::SIGNATURE,
+                    (uint8_t*)msg_buf,
+                    len
 #if CANARD_ENABLE_CANFD
-            msg_transfer.canfd = canfd;
+                    ,canfd
 #endif
-#if CANARD_MULTI_IFACE
-            msg_transfer.iface_mask = CANARD_IFACE_ALL;
-#endif
-            return send(msg_transfer);
-        }
-        return false;
+                    );
     }
 private:
     uint8_t msg_buf[msgtype::cxx_iface::MAX_SIZE]; ///< Buffer to store the encoded message
