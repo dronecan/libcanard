@@ -66,6 +66,18 @@ extern "C" {
 #endif
 #endif
 
+#ifndef CANARD_ENABLE_TABLE_CODING
+#define CANARD_ENABLE_TABLE_CODING                  1
+#endif
+
+#ifndef CANARD_ENABLE_TABLE_ENCODING
+#define CANARD_ENABLE_TABLE_ENCODING                CANARD_ENABLE_TABLE_CODING
+#endif
+
+#ifndef CANARD_ENABLE_TABLE_DECODING
+#define CANARD_ENABLE_TABLE_DECODING                CANARD_ENABLE_TABLE_CODING
+#endif
+
 /// By default this macro resolves to the standard assert(). The user can redefine this if necessary.
 #ifndef CANARD_ASSERT
 #ifdef CANARD_ENABLE_ASSERTS
@@ -451,6 +463,24 @@ struct CanardRxTransfer
 #endif
 };
 
+#if CANARD_ENABLE_TABLE_DECODING || CANARD_ENABLE_TABLE_ENCODING
+/**
+ * This structure describes the encoded form of part of a particular message. It
+ * can be contained in ROM. It should be generated using dronecan_dsdlc.
+ */
+typedef struct {
+} CanardCodingTableEntry;
+
+/**
+ * This structure describes the encoded form of a particular message. It can be
+ * contained in ROM. It should be generated using dronecan_dsdlc.
+ */
+typedef struct {
+    size_t entries_max;
+    CanardCodingTableEntry entries[];
+} CanardCodingTable;
+#endif
+
 /**
  * Initializes a library instance.
  * Local node ID will be set to zero, i.e. the node will be anonymous.
@@ -681,6 +711,35 @@ void canardEncodeScalar(void* destination,      ///< Destination buffer where th
                         uint32_t bit_offset,    ///< Offset, in bits, from the beginning of the destination buffer
                         uint8_t bit_length,     ///< Length of the value, in bits; see the table
                         const void* value);     ///< Pointer to the value; see the table
+
+#if CANARD_ENABLE_TABLE_DECODING
+/**
+ * This function can be used to extract a message structure from a transfer
+ * using a coding table that describes the message layout.
+ *
+ * Returns true if there was an error during the decoding.
+ */
+bool canardTableDecodeMessage(const CanardCodingTable* table,   ///< Table describing message layout
+                              const CanardRxTransfer* transfer, ///< Transfer containing the message data
+                              void* msg);                       ///< Pointer to the destination message structure
+#endif
+
+#if CANARD_ENABLE_TABLE_ENCODING
+/**
+ * This function can be used to encode a message structure into a buffer using a
+ * coding table that describes the message layout. For a message type named
+ * msg.type, the buffer must be at least MSG_TYPE_MAX_SIZE bytes.
+ *
+ * Returns the actual number of bytes stored into the buffer.
+ */
+uint32_t canardTableEncodeMessage(const CanardCodingTable* table, ///< Table describing message layout
+                                  uint8_t* buffer,                ///< Pointer to the destination buffer
+                                  const void* msg                 ///< Pointer to message structure to be encoded
+#if CANARD_ENABLE_TAO_OPTION
+                                , bool tao                        ///< True if encoding should use tail array optimization (TAO)
+#endif
+                                 );
+#endif
 
 /**
  * This function can be invoked by the application to release pool blocks that are used

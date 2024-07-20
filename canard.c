@@ -994,6 +994,39 @@ void canardEncodeScalar(void* destination,
     copyBitArray(&storage.bytes[0], 0, bit_length, (uint8_t*) destination, bit_offset);
 }
 
+#if CANARD_ENABLE_TABLE_DECODING
+bool canardTableDecodeMessage(const CanardCodingTable* table,
+                              const CanardRxTransfer* transfer,
+                              void* msg)
+{
+    (void)table;
+    (void)transfer;
+    (void)msg;
+
+    return true;
+}
+#endif
+
+#if CANARD_ENABLE_TABLE_ENCODING
+uint32_t canardTableEncodeMessage(const CanardCodingTable* table,
+                                  uint8_t* buffer,
+                                  const void* msg
+#if CANARD_ENABLE_TAO_OPTION
+                                , bool tao
+#endif
+                                 )
+{
+    (void)table;
+    (void)buffer;
+    (void)msg;
+#if CANARD_ENABLE_TAO_OPTION
+    (void)tao;
+#endif
+
+    return 0;
+}
+#endif
+
 void canardReleaseRxTransferPayload(CanardInstance* ins, CanardRxTransfer* transfer)
 {
     while (transfer->payload_middle != NULL)
