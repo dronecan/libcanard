@@ -464,21 +464,52 @@ struct CanardRxTransfer
 };
 
 #if CANARD_ENABLE_TABLE_DECODING || CANARD_ENABLE_TABLE_ENCODING
+
+#define CANARD_TABLE_CODING_UNSIGNED (0)
+#define CANARD_TABLE_CODING_SIGNED (1)
+#define CANARD_TABLE_CODING_FLOAT (2)
+#define CANARD_TABLE_CODING_VOID (3)
+
 /**
  * This structure describes the encoded form of part of a particular message. It
  * can be contained in ROM. It should be generated using dronecan_dsdlc.
  */
 typedef struct {
+    uint16_t offset;
+    uint8_t type;
+    uint8_t bitlen;
 } CanardCodingTableEntry;
+
+/**
+ * Coding table entry for primitive types (unsigned, signed, float).
+ *
+ * offset: offset, in chars, to the storage in the message struct
+ * type: 0, 1, or 2 for unsigned, signed, float
+ * bitlen: number of bits the primitive is encoded into
+ */
+#define CANARD_TABLE_CODING_ENTRY_PRIMITIVE(offset, type, bitlen) \
+    {offset, type, bitlen}
+
+/**
+ * Coding table entry for void type.
+ *
+ * offset: always 0
+ * type: 3 for void
+ * bitlen: number of bits of padding in the encoded output
+ */
+#define CANARD_TABLE_CODING_ENTRY_VOID(bitlen) \
+    {0, CANARD_TABLE_CODING_VOID, bitlen}
 
 /**
  * This structure describes the encoded form of a particular message. It can be
  * contained in ROM. It should be generated using dronecan_dsdlc.
  */
 typedef struct {
-    size_t entries_max;
+    uint16_t max_size; // must be > 0
+    uint16_t entries_max;
     CanardCodingTableEntry entries[];
 } CanardCodingTable;
+
 #endif
 
 /**

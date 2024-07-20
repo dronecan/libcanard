@@ -999,11 +999,28 @@ bool canardTableDecodeMessage(const CanardCodingTable* table,
                               const CanardRxTransfer* transfer,
                               void* msg)
 {
-    (void)table;
-    (void)transfer;
-    (void)msg;
+#if CANARD_ENABLE_TAO_OPTION
+    if (transfer->tao && (transfer->payload_len > table->max_size)) {
+        return true; // invalid length
+    }
+#endif
 
-    return true;
+    uint32_t bit_ofs = 0;
+    const CanardCodingTableEntry* entry = &table->entries[0];
+    const CanardCodingTableEntry* entry_last = &table->entries[table->entries_max];
+    if (tableDecodeCore(entry, entry_last, transfer, &bit_ofs, msg)) {
+        return true; // decode failure
+    }
+
+    const uint32_t byte_len = (bit_ofs+7U)/8U;
+#if CANARD_ENABLE_TAO_OPTION
+    // if this could be CANFD then the dlc could indicating more bytes than
+    // we actually have
+    if (!transfer->tao) {
+        return byte_len > transfer->payload_len;
+    }
+#endif
+    return byte_len != transfer->payload_len;
 }
 #endif
 
@@ -1016,14 +1033,14 @@ uint32_t canardTableEncodeMessage(const CanardCodingTable* table,
 #endif
                                  )
 {
-    (void)table;
-    (void)buffer;
-    (void)msg;
-#if CANARD_ENABLE_TAO_OPTION
-    (void)tao;
-#endif
+    memset(buffer, 0, table->max_size);
 
-    return 0;
+    uint32_t bit_ofs = 0;
+    const CanardCodingTableEntry* entry = &table->entries[0];
+    const CanardCodingTableEntry* entry_last = &table->entries[table->entries_max];
+    tableEncodeCore(entry, entry_last, buffer, &bit_ofs, msg);
+
+    return ((bit_ofs+7)/8);
 }
 #endif
 
@@ -1871,6 +1888,88 @@ CANARD_INTERNAL void swapByteOrder(void* data, unsigned size)
         rev--;
     }
 }
+
+/**
+ * Table coding functions
+ */
+#if CANARD_ENABLE_TABLE_DECODING
+CANARD_INTERNAL bool tableDecodeCore(const CanardCodingTableEntry* entry,
+                                     const CanardCodingTableEntry* entry_last,
+                                     const CanardRxTransfer* transfer,
+                                     uint32_t* bit_ofs,
+                                     void* msg)
+{
+    do {
+        void* p = (char*)msg + entry->offset;
+        uint8_t type = entry->type;
+        uint8_t bitlen = entry->bitlen;
+
+        switch (type) {
+        case CANARD_TABLE_CODING_UNSIGNED:
+        case CANARD_TABLE_CODING_SIGNED:
+        case CANARD_TABLE_CODING_FLOAT: {
+            canardDecodeScalar(transfer, *bit_ofs, bitlen, type != CANARD_TABLE_CODING_UNSIGNED, p);
+            if (type == CANARD_TABLE_CODING_FLOAT && bitlen == 16) {
+                uint16_t float16_val = (uint16_t)*(int16_t*)p;
+                *(float*)p = canardConvertFloat16ToNativeFloat(float16_val);
+            }
+
+            *bit_ofs += bitlen;
+            break;
+        }
+
+        case CANARD_TABLE_CODING_VOID:
+            // nothing to decode for void
+            *bit_ofs += bitlen;
+            break;
+
+        default:
+            return true; // invalid type
+        }
+    } while (++entry <= entry_last);
+
+    return false; // success
+}
+#endif
+
+#if CANARD_ENABLE_TABLE_ENCODING
+CANARD_INTERNAL void tableEncodeCore(const CanardCodingTableEntry* entry,
+                                     const CanardCodingTableEntry* entry_last,
+                                     uint8_t* buffer,
+                                     uint32_t* bit_ofs,
+                                     const void* msg)
+{
+    do {
+        const void* p = (const char*)msg + entry->offset;
+        uint8_t type = entry->type;
+        uint8_t bitlen = entry->bitlen;
+
+        switch (type) {
+        case CANARD_TABLE_CODING_UNSIGNED:
+        case CANARD_TABLE_CODING_SIGNED:
+        case CANARD_TABLE_CODING_FLOAT: {
+            uint16_t float16_val;
+            if (type == CANARD_TABLE_CODING_FLOAT && bitlen == 16) {
+                float16_val = canardConvertNativeFloatToFloat16(*(const float*)p);
+                p = &float16_val;
+            }
+            canardEncodeScalar(buffer, *bit_ofs, bitlen, p);
+
+            *bit_ofs += bitlen;
+            break;
+        }
+
+        case CANARD_TABLE_CODING_VOID:
+            // void encoding is taken care of by memset to 0 in the wrapper
+            *bit_ofs += bitlen;
+            break;
+
+        default:
+            return; // invalid type
+        }
+    } while (++entry <= entry_last);
+}
+#endif
 
 /*
  * CRC functions
