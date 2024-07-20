@@ -469,6 +469,7 @@ struct CanardRxTransfer
 #define CANARD_TABLE_CODING_SIGNED (1)
 #define CANARD_TABLE_CODING_FLOAT (2)
 #define CANARD_TABLE_CODING_VOID (3)
+#define CANARD_TABLE_CODING_ARRAY_STATIC (4)
 
 /**
  * This structure describes the encoded form of part of a particular message. It
@@ -499,6 +500,24 @@ typedef struct {
  */
 #define CANARD_TABLE_CODING_ENTRY_VOID(bitlen) \
     {0, CANARD_TABLE_CODING_VOID, bitlen}
+
+/**
+ * Coding table entries (2 total) for array type with a static length.
+ *
+ * first entry:
+ *  offset: offset, in chars, to the storage of the first element in the message struct
+ *  type: 4 for static array
+ *  bitlen: total number of entries after these which describe the array contents (may encompass e.g. other arrays), minus one
+ * second entry:
+ *  offset: size, in chars, of one array element, i.e. sizeof(arr[0])
+ *  type: low 8 bits of array length
+ *  bitlen: high 8 bits of array length
+ *
+ * note: entries which describe the array contents have offsets relative to the start of the array storage
+ */
+#define CANARD_TABLE_CODING_ENTRIES_ARRAY_STATIC(offset, num_entries, elem_size, array_len) \
+    {offset, CANARD_TABLE_CODING_ARRAY_STATIC, (num_entries)-1}, \
+    {elem_size, (array_len)&0xFF, (array_len)>>8}
 
 /**
  * This structure describes the encoded form of a particular message. It can be

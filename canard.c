@@ -1923,6 +1923,23 @@ CANARD_INTERNAL bool tableDecodeCore(const CanardCodingTableEntry* entry,
             *bit_ofs += bitlen;
             break;
 
+        case CANARD_TABLE_CODING_ARRAY_STATIC: {
+            const CanardCodingTableEntry* aux = ++entry;
+            const CanardCodingTableEntry* array_entry = ++entry;
+            const CanardCodingTableEntry* array_entry_last = array_entry + bitlen;
+            entry = array_entry_last; // point entry to last for ++entry at end of loop
+
+            uint16_t elems = aux->type | ((uint16_t)aux->bitlen << 8);
+            while (elems--) {
+                if (tableDecodeCore(array_entry, array_entry_last, transfer, bit_ofs, p)) {
+                    return true;
+                }
+                p = (char*)p + aux->offset;
+            }
+
+            break;
+        }
+
         default:
             return true; // invalid type
         }
@@ -1963,6 +1980,21 @@ CANARD_INTERNAL void tableEncodeCore(const CanardCodingTableEntry* entry,
             // void encoding is taken care of by memset to 0 in the wrapper
             *bit_ofs += bitlen;
             break;
+
+        case CANARD_TABLE_CODING_ARRAY_STATIC: {
+            const CanardCodingTableEntry* aux = ++entry;
+            const CanardCodingTableEntry* array_entry = ++entry;
+            const CanardCodingTableEntry* array_entry_last = array_entry + bitlen;
+            entry = array_entry_last; // point entry to last for ++entry at end of loop
+
+            uint16_t elems = aux->type | ((uint16_t)aux->bitlen << 8);
+            while (elems--) {
+                tableEncodeCore(array_entry, array_entry_last, buffer, bit_ofs, p);
+                p = (const char*)p + aux->offset;
+            }
+
+            break;
+        }
 
         default:
             return; // invalid type
