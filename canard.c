@@ -1008,7 +1008,13 @@ bool canardTableDecodeMessage(const CanardCodingTable* table,
     uint32_t bit_ofs = 0;
     const CanardCodingTableEntry* entry = &table->entries[0];
     const CanardCodingTableEntry* entry_last = &table->entries[table->entries_max];
-    if (tableDecodeCore(entry, entry_last, transfer, &bit_ofs, msg)) {
+    if (tableDecodeCore(entry, entry_last, transfer, &bit_ofs, msg,
+#if CANARD_ENABLE_TAO_OPTION
+    transfer->tao
+#else
+    true
+#endif
+    )) {
         return true; // decode failure
     }
 
@@ -1038,7 +1044,13 @@ uint32_t canardTableEncodeMessage(const CanardCodingTable* table,
     uint32_t bit_ofs = 0;
     const CanardCodingTableEntry* entry = &table->entries[0];
     const CanardCodingTableEntry* entry_last = &table->entries[table->entries_max];
-    tableEncodeCore(entry, entry_last, buffer, &bit_ofs, msg);
+    tableEncodeCore(entry, entry_last, buffer, &bit_ofs, msg,
+#if CANARD_ENABLE_TAO_OPTION
+    tao
+#else
+    true
+#endif
+    );
 
     return ((bit_ofs+7)/8);
 }
@@ -1897,7 +1909,8 @@ CANARD_INTERNAL bool tableDecodeCore(const CanardCodingTableEntry* entry,
                                      const CanardCodingTableEntry* entry_last,
                                      const CanardRxTransfer* transfer,
                                      uint32_t* bit_ofs,
-                                     void* msg)
+                                     void* msg,
+                                     bool tao)
 {
     do {
         void* p = (char*)msg + entry->offset;
@@ -1931,10 +1944,64 @@ CANARD_INTERNAL bool tableDecodeCore(const CanardCodingTableEntry* entry,
 
             uint16_t elems = aux->type | ((uint16_t)aux->bitlen << 8);
             while (elems--) {
-                if (tableDecodeCore(array_entry, array_entry_last, transfer, bit_ofs, p)) {
+                if (tableDecodeCore(array_entry, array_entry_last, transfer, bit_ofs, p, !elems && tao)) {
                     return true;
                 }
                 p = (char*)p + aux->offset;
+            }
+
+            break;
+        }
+
+        case CANARD_TABLE_CODING_ARRAY_DYNAMIC:
+        case CANARD_TABLE_CODING_ARRAY_DYNAMIC_TAO: {
+            const CanardCodingTableEntry* aux = ++entry;
+            const CanardCodingTableEntry* aux2 = ++entry;
+            const CanardCodingTableEntry* array_entry = ++entry;
+            const CanardCodingTableEntry* array_entry_last = array_entry + bitlen;
+            entry = array_entry_last; // point entry to last for ++entry at end of loop
+
+            uint16_t max_len = aux->type | ((uint16_t)aux->bitlen << 8);
+            void* len_p = ((char*)msg + aux2->offset);
+            uint8_t len_bitlen = aux2->bitlen;
+            if (type != CANARD_TABLE_CODING_ARRAY_DYNAMIC_TAO || !tao) {
+                // not using TAO
+                canardDecodeScalar(transfer, *bit_ofs, len_bitlen, false, len_p);
+                *bit_ofs += len_bitlen;
+
+                uint16_t elems;
+                if (len_bitlen <= 8) {
+                    elems = *(uint8_t*)len_p;
+                } else { // 16 bits is max supported len
+                    elems = *(uint16_t*)len_p;
+                }
+                if (elems > max_len) {
+                    return true; // invalid value
+                }
+
+                while (elems--) {
+                    if (tableDecodeCore(array_entry, array_entry_last, transfer, bit_ofs, p, !elems && tao)) {
+                        return true;
+                    }
+                    p = (char*)p + aux->offset;
+                }
+            } else {
+                // TAO optimization in play
+                uint16_t elems = 0;
+                // TAO requires the element size to be at least 8 bits so if we have less we know we are done
+                uint32_t max_bits = (transfer->payload_len*8)-7;
+                while (max_bits > *bit_ofs) {
+                    if (!max_len-- || tableDecodeCore(array_entry, array_entry_last, transfer, bit_ofs, p, false)) {
+                        return true;
+                    }
+                    p = (char*)p + aux->offset;
+                    elems++;
+                }
+                if (len_bitlen <= 8) {
+                    *(uint8_t*)len_p = (uint8_t)elems;
+                } else { // 16 bits is max supported len
+                    *(uint16_t*)len_p = elems;
+                }
             }
 
             break;
@@ -1954,7 +2021,8 @@ CANARD_INTERNAL void tableEncodeCore(const CanardCodingTableEntry* entry,
                                      const CanardCodingTableEntry* entry_last,
                                      uint8_t* buffer,
                                      uint32_t* bit_ofs,
-                                     const void* msg)
+                                     const void* msg,
+                                     bool tao)
 {
     do {
         const void* p = (const char*)msg + entry->offset;
@@ -1989,7 +2057,51 @@ CANARD_INTERNAL void tableEncodeCore(const CanardCodingTableEntry* entry,
 
             uint16_t elems = aux->type | ((uint16_t)aux->bitlen << 8);
             while (elems--) {
-                tableEncodeCore(array_entry, array_entry_last, buffer, bit_ofs, p);
+                tableEncodeCore(array_entry, array_entry_last, buffer, bit_ofs, p, !elems && tao);
+                p = (const char*)p + aux->offset;
+            }
+
+            break;
+        }
+
+        case CANARD_TABLE_CODING_ARRAY_DYNAMIC:
+        case CANARD_TABLE_CODING_ARRAY_DYNAMIC_TAO: {
+            const CanardCodingTableEntry* aux = ++entry;
+            const CanardCodingTableEntry* aux2 = ++entry;
+            const CanardCodingTableEntry* array_entry = ++entry;
+            const CanardCodingTableEntry* array_entry_last = array_entry + bitlen;
+            entry = array_entry_last; // point entry to last for ++entry at end of loop
+
+            uint16_t max_len = aux->type | ((uint16_t)aux->bitlen << 8);
+            const void* len_p = (const char*)msg + aux2->offset;
+            uint8_t len_bitlen = aux2->bitlen;
+
+            uint16_t elems;
+            if (len_bitlen <= 8) {
+                elems = *(const uint8_t*)len_p;
+            } else { // 16 bits is max supported len
+                elems = *(const uint16_t*)len_p;
+            }
+            if (elems > max_len) {
+                elems = max_len;
+            }
+
+            if (type != CANARD_TABLE_CODING_ARRAY_DYNAMIC_TAO || !tao) {
+                // encode the length value we have clamped to the maximum
+                uint8_t elems_8;
+                if (len_bitlen <= 8) {
+                    elems_8 = (uint8_t)elems;
+                    len_p = &elems_8;
+                } else { // 16 bits is max supported len
+                    len_p = &elems;
+                }
+                canardEncodeScalar(buffer, *bit_ofs, len_bitlen, len_p);
+                *bit_ofs += len_bitlen;
+            }
+
+            int element_tao = type != CANARD_TABLE_CODING_ARRAY_DYNAMIC_TAO && tao;
+            while (elems--) {
+                tableEncodeCore(array_entry, array_entry_last, buffer, bit_ofs, p, !elems && element_tao);
                 p = (const char*)p + aux->offset;
             }
 

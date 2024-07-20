@@ -158,7 +158,8 @@ CANARD_INTERNAL bool tableDecodeCore(const CanardCodingTableEntry* entry,
                                      const CanardCodingTableEntry* entry_end,
                                      const CanardRxTransfer* transfer,
                                      uint32_t* bit_ofs,
-                                     void* msg);
+                                     void* msg,
+                                     bool tao);
 #endif
 
 #if CANARD_ENABLE_TABLE_ENCODING
@@ -166,7 +167,8 @@ CANARD_INTERNAL void tableEncodeCore(const CanardCodingTableEntry* entry,
                                      const CanardCodingTableEntry* entry_end,
                                      uint8_t* buffer,
                                      uint32_t* bit_ofs,
-                                     const void* msg);
+                                     const void* msg,
+                                     bool tao);
 #endif
 
 /*

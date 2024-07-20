@@ -470,6 +470,8 @@ struct CanardRxTransfer
 #define CANARD_TABLE_CODING_FLOAT (2)
 #define CANARD_TABLE_CODING_VOID (3)
 #define CANARD_TABLE_CODING_ARRAY_STATIC (4)
+#define CANARD_TABLE_CODING_ARRAY_DYNAMIC (5)
+#define CANARD_TABLE_CODING_ARRAY_DYNAMIC_TAO (6)
 
 /**
  * This structure describes the encoded form of part of a particular message. It
@@ -518,6 +520,29 @@ typedef struct {
 #define CANARD_TABLE_CODING_ENTRIES_ARRAY_STATIC(offset, num_entries, elem_size, array_len) \
     {offset, CANARD_TABLE_CODING_ARRAY_STATIC, (num_entries)-1}, \
     {elem_size, (array_len)&0xFF, (array_len)>>8}
+
+/**
+ * Coding table entries (3 total) for array type with a dynamic length.
+ *
+ * first entry:
+ *  offset: offset, in chars, to the storage of the first element in the message struct
+ *  type: 5 for dynamic array, 6 for dynamic array eligible for TAO
+ *  bitlen: total number of entries after these which describe the array contents (may encompass e.g. other arrays), minus one
+ * second entry:
+ *  offset: size, in chars, of one array element, i.e. sizeof(arr[0])
+ *  type: low 8 bits of array length
+ *  bitlen: high 8 bits of array length
+ * third entry:
+ *  offset: offset, in chars, to the storage in the message struct containing the array length
+ *  type: always 0
+ *  bitlen: number of bits the array length is encoded into
+ *
+ * note: entries which describe the array contents have offsets relative to the start of the array storage
+ */
+#define CANARD_TABLE_CODING_ENTRIES_ARRAY_DYNAMIC(offset, tao, num_entries, elem_size, array_len, len_bitlen, len_offset) \
+    {offset, (tao) ? CANARD_TABLE_CODING_ARRAY_DYNAMIC_TAO : CANARD_TABLE_CODING_ARRAY_DYNAMIC, (num_entries)-1}, \
+    {elem_size, (array_len)&0xFF, (array_len)>>8}, \
+    {len_offset, 0, len_bitlen}
 
 /**
  * This structure describes the encoded form of a particular message. It can be
