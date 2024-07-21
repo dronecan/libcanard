@@ -472,6 +472,17 @@ struct CanardRxTransfer
 #define CANARD_TABLE_CODING_ARRAY_STATIC (4)
 #define CANARD_TABLE_CODING_ARRAY_DYNAMIC (5)
 #define CANARD_TABLE_CODING_ARRAY_DYNAMIC_TAO (6)
+#define CANARD_TABLE_CODING_UNION (7)
+
+/**
+ * Structure representing the enum for the union tag field for the maximum
+ * supported structure size in the table. We assume it is the same size as any
+ * union tag enum with the same span of tag values or less.
+ */
+typedef enum {
+    CanardCodingTableUnionEnumMin = 0,
+    CanardCodingTableUnionEnumMax = 254,
+} CanardCodingTableUnionEnum;
 
 /**
  * This structure describes the encoded form of part of a particular message. It
@@ -545,8 +556,43 @@ typedef struct {
     {len_offset, 0, len_bitlen}
 
 /**
+ * Coding table entries (2 total) for union type header.
+ *
+ * first entry:
+ *  offset: offset, in chars, to the storage of an arbitrary union member
+ *  type: 7 for union
+ *  bitlen: number of fields in the union
+ * second entry:
+ *  offset: offset, in chars, to the storage of the tag
+ *  type: always 0
+ *  bitlen: number of bits the tag is encoded into
+ *
+ * note: entries which describe the union contents have offsets relative to the start of the array storage
+ */
+#define CANARD_TABLE_CODING_ENTRIES_UNION(offset, num_fields, tag_bitlen, tag_offset) \
+    {offset, CANARD_TABLE_CODING_UNION, num_fields}, \
+    {tag_offset, 0, tag_bitlen}
+
+/**
+ * Coding table entry for union type field.
+ *
+ * offset: always 0
+ * type: always 0
+ * bitlen: total number of entries after these which describe the field contents (may encompass e.g. arrays)
+ */
+#define CANARD_TABLE_CODING_ENTRY_UNION_FIELD(num_entries) \
+    {0, 0, num_entries}
+
+/**
  * This structure describes the encoded form of a particular message. It can be
  * contained in ROM. It should be generated using dronecan_dsdlc.
+ *
+ * The table can describe any structure of message supported by DSDL, however
+ * the quantities and sizes of specific aspects are limited by the datatypes
+ * chosen. For example, the total number of entries is limited to 65536 due to
+ * the maximum entry index being stored in a uint16_t. The description for each
+ * type of table entry explains the field types and meanings, from which the
+ * maximum supported values can be derived.
  */
 typedef struct {
     uint16_t max_size; // must be > 0
