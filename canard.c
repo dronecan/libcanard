@@ -434,21 +434,18 @@ int16_t canardHandleRxFrame(CanardInstance* ins, const CanardCANFrame* frame, ui
     uint64_t data_type_signature = 0;
     CanardRxState* rx_state = NULL;
 
+    if (!ins->should_accept(ins, &data_type_signature, data_type_id, transfer_type, source_node_id))
+    {
+        return -CANARD_ERROR_RX_NOT_WANTED;
+    }
+
     if (IS_START_OF_TRANSFER(tail_byte))
     {
+        rx_state = traverseRxStates(ins, transfer_descriptor);
 
-        if (ins->should_accept(ins, &data_type_signature, data_type_id, transfer_type, source_node_id))
+        if(rx_state == NULL)
         {
-            rx_state = traverseRxStates(ins, transfer_descriptor);
-
-            if(rx_state == NULL)
-            {
-                return -CANARD_ERROR_OUT_OF_MEMORY;
-            }
-        }
-        else
-        {
-            return -CANARD_ERROR_RX_NOT_WANTED;
+            return -CANARD_ERROR_OUT_OF_MEMORY;
         }
     }
     else
