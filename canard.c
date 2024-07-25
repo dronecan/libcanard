@@ -456,8 +456,16 @@ int16_t canardHandleRxFrame(CanardInstance* ins, const CanardCANFrame* frame, ui
         rx_state = findRxState(ins, transfer_descriptor);
 
         if (rx_state == NULL)
-        {
-            return -CANARD_ERROR_RX_MISSED_START;
+	{
+	    // we should return -CANARD_ERROR_RX_NOT_WANTED for
+	    // non-start frames where we have rejected the start of
+	    // transfer.  doing it here avoids calling the potentially
+	    // expensive should_accept() on every frame in messages we
+	    // will be accepting
+	    if (!ins->should_accept(ins, &data_type_signature, data_type_id, transfer_type, source_node_id)) {
+		return -CANARD_ERROR_RX_NOT_WANTED;
+	    }
+	    return -CANARD_ERROR_RX_MISSED_START;
         }
     }
 
