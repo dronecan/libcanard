@@ -19,7 +19,8 @@ int16_t LinuxCANInit(LinuxCANInstance* out_ins, const char* can_iface_name)
 {
     out_ins->socketcan = NULL;
     out_ins->mcast = NULL;
-    if (strncmp(can_iface_name, "vcan", 4) == 0) {
+    if (strncmp(can_iface_name, "vcan", 4) == 0 ||
+        strncmp(can_iface_name, "can", 3) == 0) {
         out_ins->socketcan = (SocketCANInstance *)calloc(1, sizeof(SocketCANInstance));
         if (out_ins->socketcan == NULL) {
             return -ENOMEM;
