@@ -50,6 +50,7 @@ public:
 
     // destructor, remove the entry from the singly-linked list
     ~Client() {
+        unlink();
         Client<rsptype>* entry = branch_head[index];
         if (entry == this) {
             branch_head[index] = next;

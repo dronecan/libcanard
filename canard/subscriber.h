@@ -53,6 +53,7 @@ public:
 
     // destructor, remove the entry from the singly-linked list
     ~Subscriber() {
+        unlink();
         Subscriber<msgtype>* entry = branch_head[index];
         if (entry == this) {
             branch_head[index] = next;

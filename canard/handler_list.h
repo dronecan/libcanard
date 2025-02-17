@@ -59,8 +59,8 @@ public:
     /// @brief delete copy constructor and assignment operator
     HandlerList(const HandlerList&) = delete;
 
-    // destructor, remove the entry from the singly-linked list
-    virtual ~HandlerList() NOINLINE_FUNC {
+    // remove the entry from the singly-linked list
+    void unlink() NOINLINE_FUNC {
 #ifdef WITH_SEMAPHORE
         WITH_SEMAPHORE(sem[index]);
 #endif
