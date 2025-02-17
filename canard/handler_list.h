@@ -86,7 +86,6 @@ public:
             if (transfer.data_type_id == entry->msgid &&
                 entry->transfer_type == transfer.transfer_type) {
                 entry->handle_message(transfer);
-                return;
             }
             entry = entry->next;
         }
