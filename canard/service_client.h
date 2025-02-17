@@ -41,56 +41,30 @@ public:
     Sender(_interface),
     server_node_id(255),
     cb(_cb) {
-#ifdef WITH_SEMAPHORE
-        WITH_SEMAPHORE(sem[index]);
-#endif
-        next = branch_head[index];
-        branch_head[index] = this;
-        link(); // link ourselves into the handler list now that we're in the branch list
+        // link ourselves into the handler list
+        link();
     }
 
     // delete copy constructor and assignment operator
     Client(const Client&) = delete;
 
-    // destructor, remove the entry from the singly-linked list
+    // destructor
     ~Client() NOINLINE_FUNC {
-#ifdef WITH_SEMAPHORE
-        WITH_SEMAPHORE(sem[index]);
-#endif
-        unlink(); // unlink ourselves from the handler list before the branch list
-        Client<rsptype>* entry = branch_head[index];
-        if (entry == this) {
-            branch_head[index] = next;
-            return;
-        }
-        while (entry != nullptr) {
-            if (entry->next == this) {
-                entry->next = next;
-                return;
-            }
-            entry = entry->next;
-        }
+        // unlink ourselves from the handler list
+        unlink();
     }
 
     /// @brief handles incoming messages
     /// @param transfer transfer object of the request
-    void handle_message(const CanardRxTransfer& transfer) override NOINLINE_FUNC {
+    bool handle_message(const CanardRxTransfer& transfer) override NOINLINE_FUNC {
         rsptype msg {};
-        if (rsptype::cxx_iface::rsp_decode(&transfer, &msg)) {
-            // invalid decode
-            return;
+        if (server_node_id == transfer.source_node_id &&
+            transfer_id == transfer.transfer_id &&
+            !rsptype::cxx_iface::rsp_decode(&transfer, &msg)) {
+                cb(transfer, msg);
+                return true;
         }
-
-        // scan through the list of entries for corresponding server node id and transfer id
-        Client<rsptype>* entry = branch_head[index];
-        while (entry != nullptr) {
-            if (entry->server_node_id == transfer.source_node_id
-                && entry->transfer_id == transfer.transfer_id) {
-                entry->cb(transfer, msg);
-                return;
-            }
-            entry = entry->next;
-        }
+        return false;
     }
 
     /// @brief makes service request
@@ -139,16 +113,11 @@ public:
     }
 
 private:
-    static Client<rsptype>* branch_head[CANARD_NUM_HANDLERS];
-    Client<rsptype>* next;
     uint8_t server_node_id;
 
     uint8_t req_buf[rsptype::cxx_iface::REQ_MAX_SIZE];
     Callback<rsptype> &cb;
     uint8_t transfer_id;
 };
-
-template <typename rsptype>
-Client<rsptype> *Client<rsptype>::branch_head[] = {nullptr};
 
 } // namespace Canard

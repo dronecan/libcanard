@@ -41,9 +41,6 @@ public:
     HandlerList(CanardTransferTypeRequest, reqtype::cxx_iface::ID, reqtype::cxx_iface::SIGNATURE, _interface.get_index()),
     interface(_interface),
     cb(_cb) {
-#ifdef WITH_SEMAPHORE
-        WITH_SEMAPHORE(sem[index]);
-#endif
         link(); // link ourselves into the handler list
     }
 
@@ -51,23 +48,20 @@ public:
     Server(const Server&) = delete;
 
     ~Server() NOINLINE_FUNC {
-#ifdef WITH_SEMAPHORE
-        WITH_SEMAPHORE(sem[index]);
-#endif
         unlink(); // unlink ourselves from the handler list
     }
 
     /// @brief handles incoming messages
     /// @param transfer transfer object of the request
-    void handle_message(const CanardRxTransfer& transfer) override NOINLINE_FUNC {
+    /// @return true if message has been handled
+    bool handle_message(const CanardRxTransfer& transfer) override NOINLINE_FUNC {
         reqtype msg {};
-        if (reqtype::cxx_iface::req_decode(&transfer, &msg)) {
-            // invalid decode
-            return;
+        if (!reqtype::cxx_iface::req_decode(&transfer, &msg)) {
+            transfer_id = transfer.transfer_id;
+            cb(transfer, msg);
+            return true;
         }
-        transfer_id = transfer.transfer_id;
-        // call the registered callback
-        cb(transfer, msg);
+        return false;
     }
 
     /// @brief Send a response to the request
