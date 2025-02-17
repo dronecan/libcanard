@@ -41,12 +41,8 @@ public:
     Subscriber(Callback<msgtype> &_cb, uint8_t _index) NOINLINE_FUNC :
     HandlerList(CanardTransferTypeBroadcast, msgtype::cxx_iface::ID, msgtype::cxx_iface::SIGNATURE, _index),
     cb (_cb) {
-#ifdef WITH_SEMAPHORE
-        WITH_SEMAPHORE(sem[index]);
-#endif
-        next = branch_head[index];
-        branch_head[index] = this;
-        link(); // link ourselves into the handler list now that we're in the branch list
+        // link ourselves into the handler list
+        link();
     }
 
     // delete copy constructor and assignment operator
@@ -54,48 +50,24 @@ public:
 
     // destructor, remove the entry from the singly-linked list
     ~Subscriber() NOINLINE_FUNC {
-#ifdef WITH_SEMAPHORE
-        WITH_SEMAPHORE(sem[index]);
-#endif
-        unlink(); // unlink ourselves from the handler list before the branch list
-        Subscriber<msgtype>* entry = branch_head[index];
-        if (entry == this) {
-            branch_head[index] = next;
-            return;
-        }
-        while (entry != nullptr) {
-            if (entry->next == this) {
-                entry->next = next;
-                return;
-            }
-            entry = entry->next;
-        }
+        // unlink ourselves from the handler list
+        unlink();
     }
 
     /// @brief parse the message and call the callback
     /// @param transfer transfer object
-    void handle_message(const CanardRxTransfer& transfer) override NOINLINE_FUNC {
+    bool handle_message(const CanardRxTransfer& transfer) override NOINLINE_FUNC {
         msgtype msg {};
-        if (msgtype::cxx_iface::decode(&transfer, &msg)) {
-            // invalid decode
-            return;
+        if (!msgtype::cxx_iface::decode(&transfer, &msg)) {
+            cb(transfer, msg);
+            return true;
         }
-        // call all registered callbacks in one go
-        Subscriber<msgtype>* entry = branch_head[index];
-        while (entry != nullptr) {
-            entry->cb(transfer, msg);
-            entry = entry->next;
-        }
+        return false;
     }
 
 private:
-    Subscriber<msgtype>* next;
-    static Subscriber<msgtype> *branch_head[CANARD_NUM_HANDLERS];
     Callback<msgtype> &cb;
 };
-
-template <typename msgtype>
-Subscriber<msgtype>* Subscriber<msgtype>::branch_head[] = {nullptr};
 
 template <typename T, typename msgtype>
 class SubscriberArgCb {

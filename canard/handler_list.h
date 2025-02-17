@@ -85,8 +85,11 @@ public:
         while (entry != nullptr) {
             if (transfer.data_type_id == entry->msgid &&
                 entry->transfer_type == transfer.transfer_type) {
-                entry->handle_message(transfer);
-                return;
+                if (entry->handle_message(transfer) &&
+                    transfer.transfer_type != CanardTransferTypeBroadcast) {
+                    // we only allow one request or response for non-broadcast
+                    break;
+                }
             }
             entry = entry->next;
         }
@@ -94,7 +97,8 @@ public:
 
     /// @brief Method to handle a message implemented by the derived class
     /// @param transfer transfer object of the request
-    virtual void handle_message(const CanardRxTransfer& transfer) = 0;
+    /// @return true if the message is for this consumer
+    virtual bool handle_message(const CanardRxTransfer& transfer) = 0;
 
 protected:
     virtual ~HandlerList() {}
@@ -104,14 +108,20 @@ protected:
     static Canard::Semaphore sem[CANARD_NUM_HANDLERS];
 #endif
 
-    // add ourselves to the handler list. the caller must be holding the semaphore.
+    // add ourselves to the handler list
     void link(void) NOINLINE_FUNC {
+#ifdef WITH_SEMAPHORE
+        WITH_SEMAPHORE(sem[index]);
+#endif
         next = head[index];
         head[index] = this;
     }
 
-    // remove ourselves from the handler list. the caller must be holding the semaphore.
+    // remove ourselves from the handler list
     void unlink(void) NOINLINE_FUNC {
+#ifdef WITH_SEMAPHORE
+        WITH_SEMAPHORE(sem[index]);
+#endif
         HandlerList* entry = head[index];
         if (entry == this) {
             head[index] = next;
