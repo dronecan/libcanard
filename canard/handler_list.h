@@ -78,6 +78,12 @@ public:
         }
     }
 
+#ifdef WITH_SEMAPHORE
+    static HAL_Semaphore *get_semaphore(uint8_t idx) {
+        return idx < CANARD_NUM_HANDLERS? &sem[idx] : nullptr;
+    }
+#endif
+
     /// @brief accept a message if it is handled by this handler list
     /// @param index Index of the handler list
     /// @param msgid ID of the message/service
