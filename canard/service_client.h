@@ -46,6 +46,7 @@ public:
 #endif
         next = branch_head[index];
         branch_head[index] = this;
+        link(); // link ourselves into the handler list now that we're in the branch list
     }
 
     // delete copy constructor and assignment operator
@@ -56,6 +57,7 @@ public:
 #ifdef WITH_SEMAPHORE
         WITH_SEMAPHORE(sem[index]);
 #endif
+        unlink(); // unlink ourselves from the handler list before the branch list
         Client<rsptype>* entry = branch_head[index];
         if (entry == this) {
             branch_head[index] = next;

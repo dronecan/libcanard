@@ -41,11 +41,21 @@ public:
     HandlerList(CanardTransferTypeRequest, reqtype::cxx_iface::ID, reqtype::cxx_iface::SIGNATURE, _interface.get_index()),
     interface(_interface),
     cb(_cb) {
-        // multiple servers are not allowed, so no list
+#ifdef WITH_SEMAPHORE
+        WITH_SEMAPHORE(sem[index]);
+#endif
+        link(); // link ourselves into the handler list
     }
 
     // delete copy constructor and assignment operator
     Server(const Server&) = delete;
+
+    ~Server() {
+#ifdef WITH_SEMAPHORE
+        WITH_SEMAPHORE(sem[index]);
+#endif
+        unlink(); // unlink ourselves from the handler list
+    }
 
     /// @brief handles incoming messages
     /// @param transfer transfer object of the request
