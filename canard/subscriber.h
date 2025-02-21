@@ -38,7 +38,7 @@ public:
     /// @brief Subscriber Constructor
     /// @param _cb callback function
     /// @param _index HandlerList instance id
-    Subscriber(Callback<msgtype> &_cb, uint8_t _index) :
+    Subscriber(Callback<msgtype> &_cb, uint8_t _index) NOINLINE_FUNC :
     HandlerList(CanardTransferTypeBroadcast, msgtype::cxx_iface::ID, msgtype::cxx_iface::SIGNATURE, _index),
     cb (_cb) {
 #ifdef WITH_SEMAPHORE
@@ -53,7 +53,7 @@ public:
     Subscriber(const Subscriber&) = delete;
 
     // destructor, remove the entry from the singly-linked list
-    ~Subscriber() {
+    ~Subscriber() NOINLINE_FUNC {
 #ifdef WITH_SEMAPHORE
         WITH_SEMAPHORE(sem[index]);
 #endif
@@ -74,7 +74,7 @@ public:
 
     /// @brief parse the message and call the callback
     /// @param transfer transfer object
-    void handle_message(const CanardRxTransfer& transfer) override {
+    void handle_message(const CanardRxTransfer& transfer) override NOINLINE_FUNC {
         msgtype msg {};
         if (msgtype::cxx_iface::decode(&transfer, &msg)) {
             // invalid decode

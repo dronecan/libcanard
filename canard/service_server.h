@@ -37,7 +37,7 @@ public:
     /// @param _interface Interface object
     /// @param _cb Callback object
     /// @param _index HandlerList instance id
-    Server(Interface &_interface, Callback<reqtype> &_cb) : 
+    Server(Interface &_interface, Callback<reqtype> &_cb) NOINLINE_FUNC :
     HandlerList(CanardTransferTypeRequest, reqtype::cxx_iface::ID, reqtype::cxx_iface::SIGNATURE, _interface.get_index()),
     interface(_interface),
     cb(_cb) {
@@ -50,7 +50,7 @@ public:
     // delete copy constructor and assignment operator
     Server(const Server&) = delete;
 
-    ~Server() {
+    ~Server() NOINLINE_FUNC {
 #ifdef WITH_SEMAPHORE
         WITH_SEMAPHORE(sem[index]);
 #endif
@@ -59,7 +59,7 @@ public:
 
     /// @brief handles incoming messages
     /// @param transfer transfer object of the request
-    void handle_message(const CanardRxTransfer& transfer) override {
+    void handle_message(const CanardRxTransfer& transfer) override NOINLINE_FUNC {
         reqtype msg {};
         if (reqtype::cxx_iface::req_decode(&transfer, &msg)) {
             // invalid decode
@@ -74,7 +74,7 @@ public:
     /// @param transfer transfer object of the request
     /// @param msg message containing the response
     /// @return true if the response was put into the queue successfully
-    bool respond(const CanardRxTransfer& transfer, typename reqtype::cxx_iface::rsptype& msg) {
+    bool respond(const CanardRxTransfer& transfer, typename reqtype::cxx_iface::rsptype& msg) NOINLINE_FUNC {
         // encode the message
         uint32_t len = reqtype::cxx_iface::rsp_encode(&msg, rsp_buf
 #if CANARD_ENABLE_CANFD

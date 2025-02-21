@@ -36,7 +36,7 @@ public:
     /// @brief Client constructor
     /// @param _interface Interface object
     /// @param _cb Callback object
-    Client(Interface &_interface, Callback<rsptype> &_cb) :
+    Client(Interface &_interface, Callback<rsptype> &_cb) NOINLINE_FUNC :
     HandlerList(CanardTransferTypeResponse, rsptype::cxx_iface::ID, rsptype::cxx_iface::SIGNATURE, _interface.get_index()),
     Sender(_interface),
     server_node_id(255),
@@ -53,7 +53,7 @@ public:
     Client(const Client&) = delete;
 
     // destructor, remove the entry from the singly-linked list
-    ~Client() {
+    ~Client() NOINLINE_FUNC {
 #ifdef WITH_SEMAPHORE
         WITH_SEMAPHORE(sem[index]);
 #endif
@@ -74,7 +74,7 @@ public:
 
     /// @brief handles incoming messages
     /// @param transfer transfer object of the request
-    void handle_message(const CanardRxTransfer& transfer) override {
+    void handle_message(const CanardRxTransfer& transfer) override NOINLINE_FUNC {
         rsptype msg {};
         if (rsptype::cxx_iface::rsp_decode(&transfer, &msg)) {
             // invalid decode
@@ -106,7 +106,7 @@ public:
     /// @param msg message containing the request
     /// @param canfd true if CAN FD is to be used
     /// @return true if the request was put into the queue successfully
-    bool request(uint8_t destination_node_id, typename rsptype::cxx_iface::reqtype& msg, bool canfd) {
+    bool request(uint8_t destination_node_id, typename rsptype::cxx_iface::reqtype& msg, bool canfd) NOINLINE_FUNC {
 #if !CANARD_ENABLE_CANFD
         if (canfd) {
             return false;
