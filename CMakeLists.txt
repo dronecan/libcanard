@@ -95,8 +95,7 @@ if(${BUILD_TESTING})
   add_subdirectory(canard/tests)
   if (CANARD_ENABLE_COVERAGE)
     add_custom_target(coverage
-                      COMMAND lcov --directory . --capture --output-file coverage.info
-                      COMMAND lcov --remove coverage.info '/usr/*' '*gtest*' '*tests/*' '*dsdlc_generated/*' --output-file coverage.info
+                      COMMAND lcov --directory . --capture --output-file coverage.info --exclude '/usr/*' --exclude '*gtest*' --exclude '*dsdlc_generated/*' --exclude '*tests/*'
                       COMMAND lcov --list coverage.info
                       COMMAND genhtml coverage.info --output-directory coverage
                       COMMENT echo "Coverage report generated at ${CMAKE_BINARY_DIR}/coverage/index.html"
