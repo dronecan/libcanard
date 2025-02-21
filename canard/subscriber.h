@@ -53,6 +53,9 @@ public:
 
     // destructor, remove the entry from the singly-linked list
     ~Subscriber() {
+#ifdef WITH_SEMAPHORE
+        WITH_SEMAPHORE(sem[index]);
+#endif
         Subscriber<msgtype>* entry = branch_head[index];
         if (entry == this) {
             branch_head[index] = next;
@@ -86,9 +89,6 @@ public:
 private:
     Subscriber<msgtype>* next;
     static Subscriber<msgtype> *branch_head[CANARD_NUM_HANDLERS];
-#ifdef WITH_SEMAPHORE
-    Canard::Semaphore sem[CANARD_NUM_HANDLERS];
-#endif
     Callback<msgtype> &cb;
 };
 

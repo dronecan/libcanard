@@ -41,6 +41,9 @@ public:
     Sender(_interface),
     server_node_id(255),
     cb(_cb) {
+#ifdef WITH_SEMAPHORE
+        WITH_SEMAPHORE(sem[index]);
+#endif
         next = branch_head[index];
         branch_head[index] = this;
     }
@@ -50,6 +53,9 @@ public:
 
     // destructor, remove the entry from the singly-linked list
     ~Client() {
+#ifdef WITH_SEMAPHORE
+        WITH_SEMAPHORE(sem[index]);
+#endif
         Client<rsptype>* entry = branch_head[index];
         if (entry == this) {
             branch_head[index] = next;
