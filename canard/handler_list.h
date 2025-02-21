@@ -125,12 +125,12 @@ public:
 protected:
     uint8_t index;
     HandlerList* next;
-
-private:
-    static HandlerList* head[CANARD_NUM_HANDLERS];
 #ifdef WITH_SEMAPHORE
     static Canard::Semaphore sem[CANARD_NUM_HANDLERS];
 #endif
+
+private:
+    static HandlerList* head[CANARD_NUM_HANDLERS];
     uint16_t msgid;
     uint64_t signature;
     CanardTransferType transfer_type;
