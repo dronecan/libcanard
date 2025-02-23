@@ -38,7 +38,7 @@ public:
     /// @brief Subscriber Constructor
     /// @param _cb callback function
     /// @param _index HandlerList instance id
-    Subscriber(Callback<msgtype> &_cb, uint8_t _index) :
+    Subscriber(Callback<msgtype> &_cb, uint8_t _index) NOINLINE_FUNC :
     HandlerList(CanardTransferTypeBroadcast, msgtype::cxx_iface::ID, msgtype::cxx_iface::SIGNATURE, _index),
     cb (_cb) {
 #ifdef WITH_SEMAPHORE
@@ -46,13 +46,18 @@ public:
 #endif
         next = branch_head[index];
         branch_head[index] = this;
+        link(); // link ourselves into the handler list now that we're in the branch list
     }
 
     // delete copy constructor and assignment operator
     Subscriber(const Subscriber&) = delete;
 
     // destructor, remove the entry from the singly-linked list
-    ~Subscriber() {
+    ~Subscriber() NOINLINE_FUNC {
+#ifdef WITH_SEMAPHORE
+        WITH_SEMAPHORE(sem[index]);
+#endif
+        unlink(); // unlink ourselves from the handler list before the branch list
         Subscriber<msgtype>* entry = branch_head[index];
         if (entry == this) {
             branch_head[index] = next;
@@ -69,7 +74,7 @@ public:
 
     /// @brief parse the message and call the callback
     /// @param transfer transfer object
-    void handle_message(const CanardRxTransfer& transfer) override {
+    void handle_message(const CanardRxTransfer& transfer) override NOINLINE_FUNC {
         msgtype msg {};
         if (msgtype::cxx_iface::decode(&transfer, &msg)) {
             // invalid decode
@@ -86,9 +91,6 @@ public:
 private:
     Subscriber<msgtype>* next;
     static Subscriber<msgtype> *branch_head[CANARD_NUM_HANDLERS];
-#ifdef WITH_SEMAPHORE
-    Canard::Semaphore sem[CANARD_NUM_HANDLERS];
-#endif
     Callback<msgtype> &cb;
 };
 
