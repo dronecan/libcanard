@@ -43,14 +43,6 @@ public:
     /// @param _index Index of the handler list
     HandlerList(CanardTransferType _transfer_type, uint16_t _msgid, uint64_t _signature, uint8_t _index) NOINLINE_FUNC :
     index(_index) {
-        if (index >= CANARD_NUM_HANDLERS) {
-            return;
-        }
-#ifdef WITH_SEMAPHORE
-        WITH_SEMAPHORE(sem[index]);
-#endif
-        next = head[index];
-        head[index] = this;
         msgid = _msgid;
         signature = _signature;
         transfer_type = _transfer_type;
@@ -59,24 +51,11 @@ public:
     /// @brief delete copy constructor and assignment operator
     HandlerList(const HandlerList&) = delete;
 
-    // destructor, remove the entry from the singly-linked list
-    virtual ~HandlerList() NOINLINE_FUNC {
 #ifdef WITH_SEMAPHORE
-        WITH_SEMAPHORE(sem[index]);
-#endif
-        HandlerList* entry = head[index];
-        if (entry == this) {
-            head[index] = next;
-            return;
-        }
-        while (entry != nullptr) {
-            if (entry->next == this) {
-                entry->next = next;
-                return;
-            }
-            entry = entry->next;
-        }
+    static HAL_Semaphore *get_semaphore(uint8_t idx) {
+        return idx < CANARD_NUM_HANDLERS? &sem[idx] : nullptr;
     }
+#endif
 
     /// @brief accept a message if it is handled by this handler list
     /// @param index Index of the handler list
@@ -112,7 +91,6 @@ public:
             if (transfer.data_type_id == entry->msgid &&
                 entry->transfer_type == transfer.transfer_type) {
                 entry->handle_message(transfer);
-                return;
             }
             entry = entry->next;
         }
@@ -123,14 +101,37 @@ public:
     virtual void handle_message(const CanardRxTransfer& transfer) = 0;
 
 protected:
+    virtual ~HandlerList() {}
     uint8_t index;
-    HandlerList* next;
-
-private:
-    static HandlerList* head[CANARD_NUM_HANDLERS];
 #ifdef WITH_SEMAPHORE
     static Canard::Semaphore sem[CANARD_NUM_HANDLERS];
 #endif
+    HandlerList* next;
+
+    // add the entry into the linked list
+    void link(void) NOINLINE_FUNC {
+        next = head[index];
+        head[index] = this;
+    }
+
+    // remove the entry from the singly-linked list
+    void unlink() NOINLINE_FUNC {
+        HandlerList* entry = head[index];
+        if (entry == this) {
+            head[index] = next;
+            return;
+        }
+        while (entry != nullptr) {
+            if (entry->next == this) {
+                entry->next = next;
+                return;
+            }
+            entry = entry->next;
+        }
+    }
+    
+private:
+    static HandlerList* head[CANARD_NUM_HANDLERS];
     uint16_t msgid;
     uint64_t signature;
     CanardTransferType transfer_type;
