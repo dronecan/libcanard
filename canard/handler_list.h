@@ -41,82 +41,25 @@ public:
     /// @param _msgid ID of the message/service
     /// @param _signature Signature of the message/service
     /// @param _index Index of the handler list
-    HandlerList(CanardTransferType _transfer_type, uint16_t _msgid, uint64_t _signature, uint8_t _index) NOINLINE_FUNC :
-    index(_index) {
-        if (index >= CANARD_NUM_HANDLERS) {
-            return;
-        }
-#ifdef WITH_SEMAPHORE
-        WITH_SEMAPHORE(sem[index]);
-#endif
-        next = head[index];
-        head[index] = this;
-        msgid = _msgid;
-        signature = _signature;
-        transfer_type = _transfer_type;
-    }
+    HandlerList(CanardTransferType _transfer_type, uint16_t _msgid, uint64_t _signature, uint8_t _index) NOINLINE_FUNC;
 
     /// @brief delete copy constructor and assignment operator
     HandlerList(const HandlerList&) = delete;
 
     // destructor, remove the entry from the singly-linked list
-    virtual ~HandlerList() NOINLINE_FUNC {
-#ifdef WITH_SEMAPHORE
-        WITH_SEMAPHORE(sem[index]);
-#endif
-        HandlerList* entry = head[index];
-        if (entry == this) {
-            head[index] = next;
-            return;
-        }
-        while (entry != nullptr) {
-            if (entry->next == this) {
-                entry->next = next;
-                return;
-            }
-            entry = entry->next;
-        }
-    }
+    virtual ~HandlerList() NOINLINE_FUNC;
 
     /// @brief accept a message if it is handled by this handler list
     /// @param index Index of the handler list
     /// @param msgid ID of the message/service
     /// @param[out] signature Signature of the message/service
     /// @return true if the message is handled by this handler list
-    static bool accept_message(uint8_t index, uint16_t msgid, uint64_t &signature) NOINLINE_FUNC
-    {
-#ifdef WITH_SEMAPHORE
-        WITH_SEMAPHORE(sem[index]);
-#endif
-        HandlerList* entry = head[index];
-        while (entry != nullptr) {
-            if (entry->msgid == msgid) {
-                signature = entry->signature;
-                return true;
-            }
-            entry = entry->next;
-        }
-        return false;
-    }
+    static bool accept_message(uint8_t index, uint16_t msgid, uint64_t &signature) NOINLINE_FUNC;
 
     /// @brief handle a message if it is handled by this handler list
     /// @param index Index of the handler list
     /// @param transfer transfer object of the request
-    static void handle_message(uint8_t index, const CanardRxTransfer& transfer) NOINLINE_FUNC
-    {
-#ifdef WITH_SEMAPHORE
-        WITH_SEMAPHORE(sem[index]);
-#endif
-        HandlerList* entry = head[index];
-        while (entry != nullptr) {
-            if (transfer.data_type_id == entry->msgid &&
-                entry->transfer_type == transfer.transfer_type) {
-                entry->handle_message(transfer);
-                return;
-            }
-            entry = entry->next;
-        }
-    }
+    static void handle_message(uint8_t index, const CanardRxTransfer& transfer) NOINLINE_FUNC;
 
     /// @brief Method to handle a message implemented by the derived class
     /// @param transfer transfer object of the request
@@ -125,10 +68,12 @@ public:
 protected:
     uint8_t index;
     HandlerList* next;
-
+#ifdef CANARD_MUTEX_ENABLED
+    Canard::Semaphore& get_sem() { return sem[index]; }
+#endif
 private:
     static HandlerList* head[CANARD_NUM_HANDLERS];
-#ifdef WITH_SEMAPHORE
+#ifdef CANARD_MUTEX_ENABLED
     static Canard::Semaphore sem[CANARD_NUM_HANDLERS];
 #endif
     uint16_t msgid;

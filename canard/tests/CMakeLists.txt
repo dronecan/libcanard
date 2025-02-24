@@ -41,12 +41,19 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR}/dsdlc_generated/include)
 # glob all generated dsdlc files
 file(GLOB DSDL_GENERATED_SOURCES ${CMAKE_CURRENT_BINARY_DIR}/dsdlc_generated/src/*.c*)
 
+# glob all canard/*cpp files
+file(GLOB CANARD_CPP_SOURCES ${CMAKE_CURRENT_LIST_DIR}/../*.cpp)
+
+message(STATUS "CANARD_CPP_SOURCES: ${CANARD_CPP_SOURCES}")
+
 # append DSDL_GENERATED_SOURCES_C to SRC_FILES
 list(APPEND SRC_FILES ${DSDL_GENERATED_SOURCES})
 
-set(SRC_FILES_TEST cxx_test_interface.cpp
+set(SRC_FILES_TEST ${CANARD_CPP_SOURCES}
+                   cxx_test_interface.cpp
                    test_cxx_wrappers.cpp)
-set(SRC_FILES_CANARD canard_interface.cpp
+set(SRC_FILES_CANARD ${CANARD_CPP_SOURCES}
+                     canard_interface.cpp
                      test_canard_interface.cpp)
 
 # create test target
