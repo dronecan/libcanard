@@ -150,6 +150,27 @@ CANARD_INTERNAL bool isBigEndian(void);
 
 CANARD_INTERNAL void swapByteOrder(void* data, unsigned size);
 
+/**
+ * Table coding functions
+ */
+#if CANARD_ENABLE_TABLE_DECODING
+CANARD_INTERNAL bool tableDecodeCore(const CanardCodingTableEntry* entry,
+                                     const CanardCodingTableEntry* entry_end,
+                                     const CanardRxTransfer* transfer,
+                                     uint32_t* bit_ofs,
+                                     void* msg,
+                                     bool tao);
+#endif
+
+#if CANARD_ENABLE_TABLE_ENCODING
+CANARD_INTERNAL void tableEncodeCore(const CanardCodingTableEntry* entry,
+                                     const CanardCodingTableEntry* entry_end,
+                                     uint8_t* buffer,
+                                     uint32_t* bit_ofs,
+                                     const void* msg,
+                                     bool tao);
+#endif
+
 /*
  * Transfer CRC
  */
