@@ -120,7 +120,7 @@ bool CanardInterface::shouldAcceptTransfer(const CanardInstance* ins,
     (void)transfer_type;
     (void)source_node_id;
     CanardInterface* iface = (CanardInterface*) ins->user_reference;
-    return iface->accept_message(data_type_id, *out_data_type_signature);
+    return iface->accept_message(data_type_id, transfer_type, *out_data_type_signature);
 }
 
 void CanardTestNetwork::route_frame(CanardTestInterface *send_iface, const CanardCANFrame &frame, uint64_t timestamp_usec) {

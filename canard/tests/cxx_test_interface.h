@@ -10,7 +10,7 @@ class TestNetwork {
 public:
     static constexpr int N = 10;
     TestNetwork() {}
-    void route_msg(CoreTestInterface *send_iface, uint8_t source_node_id, uint8_t destination_node_id, Transfer transfer);
+    void route_msg(CoreTestInterface *send_iface, uint8_t source_node_id, uint8_t destination_node_id, Transfer transfer, CanardTransferType transfer_type);
     TestNetwork(const TestNetwork&) = delete;
     TestNetwork& operator=(const TestNetwork&) = delete;
 
@@ -61,7 +61,7 @@ public:
     /// @return node id
     uint8_t get_node_id() const override { return node_id; }
 
-    void handle_transfer(CanardRxTransfer &transfer);
+    void handle_transfer(CanardRxTransfer &transfer, CanardTransferType transfer_type);
 
     void free() {
         // free transfer ids
