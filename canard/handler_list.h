@@ -54,16 +54,17 @@ public:
     /// @brief accept a message if it is handled by this handler list
     /// @param index Index of the handler list
     /// @param msgid ID of the message/service
+    /// @param transfer_type canard tranfer type (Broadcast, request or reply)
     /// @param[out] signature Signature of the message/service
     /// @return true if the message is handled by this handler list
-    static bool accept_message(uint8_t index, uint16_t msgid, uint64_t &signature) NOINLINE_FUNC
+    static bool accept_message(uint8_t index,  uint16_t msgid, CanardTransferType transfer_type, uint64_t &signature) NOINLINE_FUNC
     {
 #ifdef WITH_SEMAPHORE
         WITH_SEMAPHORE(sem[index]);
 #endif
         HandlerList* entry = head[index];
         while (entry != nullptr) {
-            if (entry->msgid == msgid) {
+            if (entry->msgid == msgid && entry->transfer_type == transfer_type) {
                 signature = entry->signature;
                 return true;
             }

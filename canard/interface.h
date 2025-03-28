@@ -95,10 +95,11 @@ public:
 protected:
     /// @brief forward accept_message call to indexed HandlerList
     /// @param msgid ID of the message/service
+    /// @param transfer_type - transfer type
     /// @param[out] signature signature of message/service
     /// @return true if the message/service is accepted
-    inline bool accept_message(uint16_t msgid, uint64_t &signature) {
-        return HandlerList::accept_message(index, msgid, signature);
+    inline bool accept_message(uint16_t msgid, CanardTransferType transfer_type,  uint64_t &signature) {
+        return HandlerList::accept_message(index, msgid, transfer_type, signature);
     }
 
     /// @brief forward handle_message call to indexed HandlerList
