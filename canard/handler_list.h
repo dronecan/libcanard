@@ -95,6 +95,13 @@ public:
     /// @param transfer transfer object of the request
     virtual void handle_message(const CanardRxTransfer& transfer) = 0;
 
+#ifdef WITH_SEMAPHORE
+    // get semaphore reference for a handler_index
+    static Canard::Semaphore *get_semaphore(uint8_t handler_index) {
+        return handler_index < CANARD_NUM_HANDLERS ? &sem[handler_index] : nullptr;
+    }
+#endif
+
 protected:
     virtual ~HandlerList() {}
     uint8_t index;
