@@ -86,7 +86,6 @@ public:
             if (transfer.data_type_id == entry->msgid &&
                 entry->transfer_type == transfer.transfer_type) {
                 entry->handle_message(transfer);
-                return;
             }
             entry = entry->next;
         }
@@ -95,6 +94,13 @@ public:
     /// @brief Method to handle a message implemented by the derived class
     /// @param transfer transfer object of the request
     virtual void handle_message(const CanardRxTransfer& transfer) = 0;
+
+#ifdef WITH_SEMAPHORE
+    // get semaphore reference for a handler_index
+    static Canard::Semaphore *get_semaphore(uint8_t handler_index) {
+        return handler_index < CANARD_NUM_HANDLERS ? &sem[handler_index] : nullptr;
+    }
+#endif
 
 protected:
     virtual ~HandlerList() {}
