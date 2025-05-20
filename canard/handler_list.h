@@ -31,6 +31,13 @@
 #define CANARD_NUM_HANDLERS 3
 #endif
 
+/*
+  the number of buckets helps reduce CPU usage when there are many handlers
+ */
+#ifndef CANARD_NUM_RX_BUCKETS
+#define CANARD_NUM_RX_BUCKETS 8U
+#endif
+
 namespace Canard {
  
 /// @brief HandlerList to register all handled message types.
@@ -62,7 +69,7 @@ public:
 #ifdef WITH_SEMAPHORE
         WITH_SEMAPHORE(sem[index]);
 #endif
-        HandlerList* entry = head[index];
+        HandlerList* entry = head[index][msgid % CANARD_NUM_RX_BUCKETS];
         while (entry != nullptr) {
             if (entry->msgid == msgid && entry->transfer_type == transfer_type) {
                 signature = entry->signature;
@@ -81,7 +88,7 @@ public:
 #ifdef WITH_SEMAPHORE
         WITH_SEMAPHORE(sem[index]);
 #endif
-        HandlerList* entry = head[index];
+        HandlerList* entry = head[index][transfer.data_type_id % CANARD_NUM_RX_BUCKETS];
         while (entry != nullptr) {
             if (transfer.data_type_id == entry->msgid &&
                 entry->transfer_type == transfer.transfer_type) {
@@ -113,8 +120,8 @@ protected:
 #ifdef WITH_SEMAPHORE
         WITH_SEMAPHORE(sem[index]);
 #endif
-        next = head[index];
-        head[index] = this;
+        next = head[index][msgid % CANARD_NUM_RX_BUCKETS];
+        head[index][msgid % CANARD_NUM_RX_BUCKETS] = this;
     }
 
     // remove ourselves from the handler list
@@ -122,9 +129,9 @@ protected:
 #ifdef WITH_SEMAPHORE
         WITH_SEMAPHORE(sem[index]);
 #endif
-        HandlerList* entry = head[index];
+        HandlerList* entry = head[index][msgid % CANARD_NUM_RX_BUCKETS];
         if (entry == this) {
-            head[index] = next;
+            head[index][msgid % CANARD_NUM_RX_BUCKETS] = next;
             return;
         }
         while (entry != nullptr) {
@@ -137,7 +144,7 @@ protected:
     }
 
 private:
-    static HandlerList* head[CANARD_NUM_HANDLERS];
+    static HandlerList* head[CANARD_NUM_HANDLERS][CANARD_NUM_RX_BUCKETS];
     uint16_t msgid;
     uint64_t signature;
     CanardTransferType transfer_type;
@@ -145,5 +152,5 @@ private:
 
 } // namespace Canard
 
-#define DEFINE_HANDLER_LIST_HEADS() Canard::HandlerList* Canard::HandlerList::head[CANARD_NUM_HANDLERS] = {}
+#define DEFINE_HANDLER_LIST_HEADS() Canard::HandlerList* Canard::HandlerList::head[CANARD_NUM_HANDLERS][CANARD_NUM_RX_BUCKETS] = {}
 #define DEFINE_HANDLER_LIST_SEMAPHORES() Canard::Semaphore Canard::HandlerList::sem[CANARD_NUM_HANDLERS] = {}
