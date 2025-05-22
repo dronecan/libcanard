@@ -19,18 +19,7 @@ int16_t LinuxCANInit(LinuxCANInstance* out_ins, const char* can_iface_name)
 {
     out_ins->socketcan = NULL;
     out_ins->mcast = NULL;
-    if (strncmp(can_iface_name, "vcan", 4) == 0 ||
-        strncmp(can_iface_name, "can", 3) == 0) {
-        out_ins->socketcan = (SocketCANInstance *)calloc(1, sizeof(SocketCANInstance));
-        if (out_ins->socketcan == NULL) {
-            return -ENOMEM;
-        }
-#if CANARD_ENABLE_CANFD
-        return socketcanInit(out_ins->socketcan, can_iface_name, can_fd);
-#else
-        return socketcanInit(out_ins->socketcan, can_iface_name);
-#endif
-    }
+
     if (strncmp(can_iface_name, "mcast", 5) == 0) {
         out_ins->mcast = (MCASTCANInstance *)calloc(1, sizeof(MCASTCANInstance));
         if (out_ins->mcast == NULL) {
@@ -42,7 +31,16 @@ int16_t LinuxCANInit(LinuxCANInstance* out_ins, const char* can_iface_name)
         return mcastInit(out_ins->mcast, can_iface_name);
 #endif
     }
-    return -EINVAL;
+
+    out_ins->socketcan = (SocketCANInstance *)calloc(1, sizeof(SocketCANInstance));
+    if (out_ins->socketcan == NULL) {
+        return -ENOMEM;
+    }
+#if CANARD_ENABLE_CANFD
+    return socketcanInit(out_ins->socketcan, can_iface_name, can_fd);
+#else
+    return socketcanInit(out_ins->socketcan, can_iface_name);
+#endif
 }
 
 /*
