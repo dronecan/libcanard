@@ -776,7 +776,7 @@ static bool shouldAcceptTransfer(const CanardInstance *ins,
  */
 static void send_NodeStatus(void)
 {
-    uint8_t buffer[UAVCAN_PROTOCOL_GETNODEINFO_RESPONSE_MAX_SIZE];
+    uint8_t buffer[UAVCAN_PROTOCOL_NODESTATUS_MAX_SIZE];
 
     node_status.uptime_sec = micros64() / 1000000ULL;
     node_status.health = UAVCAN_PROTOCOL_NODESTATUS_HEALTH_OK;
