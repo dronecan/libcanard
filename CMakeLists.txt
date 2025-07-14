@@ -5,6 +5,11 @@
 cmake_minimum_required (VERSION 3.22.1)
 project(Canard)
 
+set(Canard_VERSION_MAJOR 0)
+set(Canard_VERSION_MINOR 2)
+set(Canard_VERSION_PATCH 0)
+set(Canard_VERSION ${Canard_VERSION_MAJOR}.${Canard_VERSION_MINOR}.${Canard_VERSION_PATCH})
+
 # check arguments for 32-bit build
 option(CMAKE_32BIT "Enable 32 bit build" OFF)
 
@@ -65,7 +70,11 @@ target_compile_options(canard_tgt PUBLIC -Wall -g)
 target_include_directories(canard_tgt
   PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+    $<INSTALL_INTERFACE:include>
   )
+set_target_properties(canard_tgt PROPERTIES
+  VERSION ${Canard_VERSION}
+)
 
 add_library(canard_private_tgt canard_internals.h canard.c)
 target_compile_options(canard_private_tgt PUBLIC
@@ -103,3 +112,64 @@ if(${BUILD_TESTING})
     add_custom_command(TARGET coverage POST_BUILD COMMAND ;)
   endif()
 endif()
+
+# Install targets
+install(
+  TARGETS canard_tgt
+  EXPORT ${PROJECT_NAME}Targets
+  DESTINATION lib
+)
+
+install(
+  EXPORT ${PROJECT_NAME}Targets
+  FILE ${PROJECT_NAME}Targets.cmake
+  DESTINATION lib/cmake/${PROJECT_NAME}
+)
+
+# Install header files
+install(
+  FILES canard.h
+  DESTINATION include
+)
+
+install(
+  DIRECTORY canard
+  DESTINATION include
+  FILES_MATCHING PATTERN "*.h"
+)
+
+# uninstall target
+if(NOT TARGET uninstall)
+  configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake_uninstall.cmake.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake"
+  IMMEDIATE @ONLY)
+
+  add_custom_target(uninstall
+    COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake)
+endif()
+
+include(CMakePackageConfigHelpers)
+# generate the config file that includes the exports
+configure_package_config_file(${CMAKE_CURRENT_SOURCE_DIR}/Config.cmake.in
+  "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
+  INSTALL_DESTINATION "lib/cmake/${PROJECT_NAME}"
+  NO_SET_AND_CHECK_MACRO
+  NO_CHECK_REQUIRED_COMPONENTS_MACRO
+)
+
+write_basic_package_version_file(
+  "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
+  VERSION "${Canard_VERSION}"
+  COMPATIBILITY AnyNewerVersion
+)
+
+install(FILES
+  ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake
+  ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake
+  DESTINATION lib/cmake/${PROJECT_NAME}
+)
+
+export(EXPORT ${PROJECT_NAME}Targets
+  FILE "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Targets.cmake"
+)
