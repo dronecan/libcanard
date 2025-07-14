@@ -134,7 +134,7 @@ install(
 
 install(
   DIRECTORY canard
-  DESTINATION include/canard
+  DESTINATION include
   FILES_MATCHING PATTERN "*.h"
 )
 
