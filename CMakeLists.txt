@@ -126,10 +126,16 @@ install(
   DESTINATION lib/cmake/${PROJECT_NAME}
 )
 
-# Install header
+# Install header files
 install(
   FILES canard.h
   DESTINATION include
+)
+
+install(
+  DIRECTORY canard
+  DESTINATION include/canard
+  FILES_MATCHING PATTERN "*.h"
 )
 
 # uninstall target
