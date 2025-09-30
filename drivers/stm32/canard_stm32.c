@@ -417,6 +417,7 @@ int16_t canardSTM32Receive(CanardCANFrame* const out_frame)
             }
 
             out_frame->id = convertFrameIDRegisterToCanard(mb->RIR);
+            out_frame->iface_id = 0;
 
             out_frame->data_len = (uint8_t)(mb->RDTR & CANARD_STM32_CAN_RDTR_DLC_MASK);
 
