@@ -195,7 +195,12 @@ int16_t canardBroadcastObj(CanardInstance* ins, CanardTxTransfer* transfer_objec
 
     if (canardGetLocalNodeID(ins) == 0)
     {
-        if (transfer_object->payload_len > 7)
+#if CANARD_ENABLE_CANFD
+        if ((transfer_object->canfd && (transfer_object->payload_len > CANARD_CANFD_FRAME_MAX_DATA_LEN - 1)) ||
+            (!transfer_object->canfd && (transfer_object->payload_len > CANARD_CAN_FRAME_MAX_DATA_LEN - 1)))
+#else
+        if (transfer_object->payload_len > CANARD_CAN_FRAME_MAX_DATA_LEN - 1)
+#endif
         {
             return -CANARD_ERROR_NODE_ID_NOT_SET;
         }
