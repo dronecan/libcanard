@@ -66,6 +66,18 @@ extern "C" {
 #endif
 #endif
 
+#ifndef CANARD_ENABLE_TABLE_CODING
+#define CANARD_ENABLE_TABLE_CODING                  1
+#endif
+
+#ifndef CANARD_ENABLE_TABLE_ENCODING
+#define CANARD_ENABLE_TABLE_ENCODING                CANARD_ENABLE_TABLE_CODING
+#endif
+
+#ifndef CANARD_ENABLE_TABLE_DECODING
+#define CANARD_ENABLE_TABLE_DECODING                CANARD_ENABLE_TABLE_CODING
+#endif
+
 /// By default this macro resolves to the standard assert(). The user can redefine this if necessary.
 #ifndef CANARD_ASSERT
 #ifdef CANARD_ENABLE_ASSERTS
@@ -451,6 +463,145 @@ struct CanardRxTransfer
 #endif
 };
 
+#if CANARD_ENABLE_TABLE_DECODING || CANARD_ENABLE_TABLE_ENCODING
+
+#define CANARD_TABLE_CODING_UNSIGNED (0)
+#define CANARD_TABLE_CODING_SIGNED (1)
+#define CANARD_TABLE_CODING_FLOAT (2)
+#define CANARD_TABLE_CODING_VOID (3)
+#define CANARD_TABLE_CODING_ARRAY_STATIC (4)
+#define CANARD_TABLE_CODING_ARRAY_DYNAMIC (5)
+#define CANARD_TABLE_CODING_ARRAY_DYNAMIC_TAO (6)
+#define CANARD_TABLE_CODING_UNION (7)
+
+/**
+ * Structure representing the enum for the union tag field for the maximum
+ * supported structure size in the table. We assume it is the same size as any
+ * union tag enum with the same span of tag values or less.
+ */
+typedef enum {
+    CanardCodingTableUnionEnumMin = 0,
+    CanardCodingTableUnionEnumMax = 254,
+} CanardCodingTableUnionEnum;
+
+/**
+ * This structure describes the encoded form of part of a particular message. It
+ * can be contained in ROM. It should be generated using dronecan_dsdlc.
+ */
+typedef struct {
+    uint16_t offset;
+    uint8_t type;
+    uint8_t bitlen;
+} CanardCodingTableEntry;
+
+/**
+ * Coding table entry for primitive types (unsigned, signed, float).
+ *
+ * offset: offset, in chars, to the storage in the message struct
+ * type: 0, 1, or 2 for unsigned, signed, float
+ * bitlen: number of bits the primitive is encoded into
+ */
+#define CANARD_TABLE_CODING_ENTRY_PRIMITIVE(offset, type, bitlen) \
+    {offset, type, bitlen}
+
+/**
+ * Coding table entry for void type.
+ *
+ * offset: always 0
+ * type: 3 for void
+ * bitlen: number of bits of padding in the encoded output
+ */
+#define CANARD_TABLE_CODING_ENTRY_VOID(bitlen) \
+    {0, CANARD_TABLE_CODING_VOID, bitlen}
+
+/**
+ * Coding table entries (2 total) for array type with a static length.
+ *
+ * first entry:
+ *  offset: offset, in chars, to the storage of the first element in the message struct
+ *  type: 4 for static array
+ *  bitlen: total number of entries after these which describe the array contents (may encompass e.g. other arrays), minus one
+ * second entry:
+ *  offset: size, in chars, of one array element, i.e. sizeof(arr[0])
+ *  type: low 8 bits of array length
+ *  bitlen: high 8 bits of array length
+ *
+ * note: entries which describe the array contents have offsets relative to the start of the array storage
+ */
+#define CANARD_TABLE_CODING_ENTRIES_ARRAY_STATIC(offset, num_entries, elem_size, array_len) \
+    {offset, CANARD_TABLE_CODING_ARRAY_STATIC, (num_entries)-1}, \
+    {elem_size, (array_len)&0xFF, (array_len)>>8}
+
+/**
+ * Coding table entries (3 total) for array type with a dynamic length.
+ *
+ * first entry:
+ *  offset: offset, in chars, to the storage of the first element in the message struct
+ *  type: 5 for dynamic array, 6 for dynamic array eligible for TAO
+ *  bitlen: total number of entries after these which describe the array contents (may encompass e.g. other arrays), minus one
+ * second entry:
+ *  offset: size, in chars, of one array element, i.e. sizeof(arr[0])
+ *  type: low 8 bits of array length
+ *  bitlen: high 8 bits of array length
+ * third entry:
+ *  offset: offset, in chars, to the storage in the message struct containing the array length
+ *  type: always 0
+ *  bitlen: number of bits the array length is encoded into
+ *
+ * note: entries which describe the array contents have offsets relative to the start of the array storage
+ */
+#define CANARD_TABLE_CODING_ENTRIES_ARRAY_DYNAMIC(offset, tao, num_entries, elem_size, array_len, len_bitlen, len_offset) \
+    {offset, (tao) ? CANARD_TABLE_CODING_ARRAY_DYNAMIC_TAO : CANARD_TABLE_CODING_ARRAY_DYNAMIC, (num_entries)-1}, \
+    {elem_size, (array_len)&0xFF, (array_len)>>8}, \
+    {len_offset, 0, len_bitlen}
+
+/**
+ * Coding table entries (2 total) for union type header.
+ *
+ * first entry:
+ *  offset: offset, in chars, to the storage of an arbitrary union member
+ *  type: 7 for union
+ *  bitlen: number of fields in the union
+ * second entry:
+ *  offset: offset, in chars, to the storage of the tag
+ *  type: always 0
+ *  bitlen: number of bits the tag is encoded into
+ *
+ * note: entries which describe the union contents have offsets relative to the start of the array storage
+ */
+#define CANARD_TABLE_CODING_ENTRIES_UNION(offset, num_fields, tag_bitlen, tag_offset) \
+    {offset, CANARD_TABLE_CODING_UNION, num_fields}, \
+    {tag_offset, 0, tag_bitlen}
+
+/**
+ * Coding table entry for union type field.
+ *
+ * offset: always 0
+ * type: always 0
+ * bitlen: total number of entries after these which describe the field contents (may encompass e.g. arrays)
+ */
+#define CANARD_TABLE_CODING_ENTRY_UNION_FIELD(num_entries) \
+    {0, 0, num_entries}
+
+/**
+ * This structure describes the encoded form of a particular message. It can be
+ * contained in ROM. It should be generated using dronecan_dsdlc.
+ *
+ * The table can describe any structure of message supported by DSDL, however
+ * the quantities and sizes of specific aspects are limited by the datatypes
+ * chosen. For example, the total number of entries is limited to 65536 due to
+ * the maximum entry index being stored in a uint16_t. The description for each
+ * type of table entry explains the field types and meanings, from which the
+ * maximum supported values can be derived.
+ */
+typedef struct {
+    uint16_t max_size; // must be > 0
+    uint16_t entries_max;
+    CanardCodingTableEntry entries[];
+} CanardCodingTable;
+
+#endif
+
 /**
  * Initializes a library instance.
  * Local node ID will be set to zero, i.e. the node will be anonymous.
@@ -681,6 +832,35 @@ void canardEncodeScalar(void* destination,      ///< Destination buffer where th
                         uint32_t bit_offset,    ///< Offset, in bits, from the beginning of the destination buffer
                         uint8_t bit_length,     ///< Length of the value, in bits; see the table
                         const void* value);     ///< Pointer to the value; see the table
+
+#if CANARD_ENABLE_TABLE_DECODING
+/**
+ * This function can be used to extract a message structure from a transfer
+ * using a coding table that describes the message layout.
+ *
+ * Returns true if there was an error during the decoding.
+ */
+bool canardTableDecodeMessage(const CanardCodingTable* table,   ///< Table describing message layout
+                              const CanardRxTransfer* transfer, ///< Transfer containing the message data
+                              void* msg);                       ///< Pointer to the destination message structure
+#endif
+
+#if CANARD_ENABLE_TABLE_ENCODING
+/**
+ * This function can be used to encode a message structure into a buffer using a
+ * coding table that describes the message layout. For a message type named
+ * msg.type, the buffer must be at least MSG_TYPE_MAX_SIZE bytes.
+ *
+ * Returns the actual number of bytes stored into the buffer.
+ */
+uint32_t canardTableEncodeMessage(const CanardCodingTable* table, ///< Table describing message layout
+                                  uint8_t* buffer,                ///< Pointer to the destination buffer
+                                  const void* msg                 ///< Pointer to message structure to be encoded
+#if CANARD_ENABLE_TAO_OPTION
+                                , bool tao                        ///< True if encoding should use tail array optimization (TAO)
+#endif
+                                 );
+#endif
 
 /**
  * This function can be invoked by the application to release pool blocks that are used
