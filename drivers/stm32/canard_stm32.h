@@ -230,8 +230,12 @@ int16_t canardSTM32ComputeCANTimings(const uint32_t peripheral_clock_rate,
      *   PRESCALER_BS = PRESCALER * BS
      * ==>
      *   PRESCALER_BS = PCLK / BITRATE
+     *
+     * Rounded to nearest so a PCLK that is not an exact multiple of the bitrate
+     * (e.g. MSI-PLL derived clocks like 79.96MHz) still resolves to a divisor.
+     * This is a no-op when PCLK is an exact multiple.
      */
-    const uint32_t prescaler_bs = peripheral_clock_rate / target_bitrate;
+    const uint32_t prescaler_bs = (peripheral_clock_rate + target_bitrate / 2) / target_bitrate;
 
     /*
      * Searching for such prescaler value so that the number of quanta per bit is highest.
@@ -296,11 +300,13 @@ int16_t canardSTM32ComputeCANTimings(const uint32_t peripheral_clock_rate,
      *     ts2,ts1,brp = (x>>20)&7, (x>>16)&15, x&511
      *     return (1+ts1+1)/(1+ts1+1+ts2+1)
      */
-    if ((target_bitrate != (peripheral_clock_rate / (prescaler * (1U + bs1 + bs2)))) ||
-        !valid)
+    // accept the closest achievable bitrate within CAN oscillator tolerance;
+    // an exact match is not possible when PCLK is not an integer multiple.
+    const uint32_t achieved_bitrate = peripheral_clock_rate / (prescaler * (1U + bs1 + bs2));
+    const uint32_t bitrate_error = achieved_bitrate > target_bitrate ?
+                                   achieved_bitrate - target_bitrate : target_bitrate - achieved_bitrate;
+    if ((bitrate_error > target_bitrate / 100U) || !valid)
     {
-        // This actually means that the algorithm has a logic error, hence assert(0).
-        CANARD_ASSERT(0);  // NOLINT
         return -CANARD_STM32_ERROR_UNSUPPORTED_BIT_RATE;
     }
 
