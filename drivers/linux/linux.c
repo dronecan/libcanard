@@ -26,7 +26,7 @@ int16_t LinuxCANInit(LinuxCANInstance* out_ins, const char* can_iface_name)
             return -ENOMEM;
         }
 #if CANARD_ENABLE_CANFD
-        return mcastInit(out_ins->mcast, can_iface_name, can_fd);
+        return mcastInit(out_ins->mcast, can_iface_name, canfd);
 #else
         return mcastInit(out_ins->mcast, can_iface_name);
 #endif
@@ -37,7 +37,7 @@ int16_t LinuxCANInit(LinuxCANInstance* out_ins, const char* can_iface_name)
         return -ENOMEM;
     }
 #if CANARD_ENABLE_CANFD
-    return socketcanInit(out_ins->socketcan, can_iface_name, can_fd);
+    return socketcanInit(out_ins->socketcan, can_iface_name, canfd);
 #else
     return socketcanInit(out_ins->socketcan, can_iface_name);
 #endif
