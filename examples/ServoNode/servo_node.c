@@ -13,6 +13,7 @@
   This example uses socketcan on Linux for CAN transport
 
   Example usage: ./servo_node vcan0
+  For CAN FD:    ./servo_node vcan0 canfd
 */
 /*
  This example application is distributed under the terms of CC0 (public domain dedication).
@@ -46,7 +47,13 @@
   libcanard library instance and a memory pool for it to use
  */
 static CanardInstance canard;
-static uint8_t memory_pool[1024];
+static uint8_t memory_pool[4096];
+
+/*
+  send as CAN FD frames. Tail array optimisation must not be used when
+  encoding for CAN FD, as the frame is padded
+ */
+static bool canfd;
 
 /*
   in this example we will use dynamic node allocation if MY_NODE_ID is zero
@@ -175,7 +182,7 @@ static void handle_GetNodeInfo(CanardInstance *ins, CanardRxTransfer *transfer)
     strncpy((char*)pkt.name.data, "ServoNode", sizeof(pkt.name.data));
     pkt.name.len = strnlen((char*)pkt.name.data, sizeof(pkt.name.data));
 
-    uint16_t total_size = uavcan_protocol_GetNodeInfoResponse_encode(&pkt, buffer);
+    uint16_t total_size = uavcan_protocol_GetNodeInfoResponse_encode(&pkt, buffer, !canfd);
 
     canardRequestOrRespond(ins,
                            transfer->source_node_id,
@@ -185,7 +192,8 @@ static void handle_GetNodeInfo(CanardInstance *ins, CanardRxTransfer *transfer)
                            transfer->priority,
                            CanardResponse,
                            &buffer[0],
-                           total_size);
+                           total_size,
+                           canfd);
 }
 
 /*
@@ -281,7 +289,7 @@ static void handle_param_GetSet(CanardInstance* ins, CanardRxTransfer* transfer)
     }
 
     uint8_t buffer[UAVCAN_PROTOCOL_PARAM_GETSET_RESPONSE_MAX_SIZE];
-    uint16_t total_size = uavcan_protocol_param_GetSetResponse_encode(&pkt, buffer);
+    uint16_t total_size = uavcan_protocol_param_GetSetResponse_encode(&pkt, buffer, !canfd);
 
     canardRequestOrRespond(ins,
                            transfer->source_node_id,
@@ -291,7 +299,8 @@ static void handle_param_GetSet(CanardInstance* ins, CanardRxTransfer* transfer)
                            transfer->priority,
                            CanardResponse,
                            &buffer[0],
-                           total_size);
+                           total_size,
+                           canfd);
 }
 
 /*
@@ -316,7 +325,7 @@ static void handle_param_ExecuteOpcode(CanardInstance* ins, CanardRxTransfer* tr
     pkt.ok = true;
 
     uint8_t buffer[UAVCAN_PROTOCOL_PARAM_EXECUTEOPCODE_RESPONSE_MAX_SIZE];
-    uint16_t total_size = uavcan_protocol_param_ExecuteOpcodeResponse_encode(&pkt, buffer);
+    uint16_t total_size = uavcan_protocol_param_ExecuteOpcodeResponse_encode(&pkt, buffer, !canfd);
 
     canardRequestOrRespond(ins,
                            transfer->source_node_id,
@@ -326,7 +335,8 @@ static void handle_param_ExecuteOpcode(CanardInstance* ins, CanardRxTransfer* tr
                            transfer->priority,
                            CanardResponse,
                            &buffer[0],
-                           total_size);
+                           total_size,
+                           canfd);
 }
 
 /*
@@ -429,7 +439,8 @@ static void request_DNA()
                                               &node_id_allocation_transfer_id,
                                               CANARD_TRANSFER_PRIORITY_LOW,
                                               &allocation_request[0],
-                                              (uint16_t) (uid_size + 1));
+                                              (uint16_t) (uid_size + 1),
+                                              false);
     if (bcast_res < 0) {
         printf("Could not broadcast ID allocation req; error %d\n", bcast_res);
     }
@@ -511,7 +522,7 @@ static void handle_begin_firmware_update(CanardInstance* ins, CanardRxTransfer* 
     memset(&reply, 0, sizeof(reply));
     reply.error = UAVCAN_PROTOCOL_FILE_BEGINFIRMWAREUPDATE_RESPONSE_ERROR_OK;
 
-    uint32_t total_size = uavcan_protocol_file_BeginFirmwareUpdateResponse_encode(&reply, buffer);
+    uint32_t total_size = uavcan_protocol_file_BeginFirmwareUpdateResponse_encode(&reply, buffer, !canfd);
 
     canardRequestOrRespond(ins,
                            transfer->source_node_id,
@@ -521,7 +532,8 @@ static void handle_begin_firmware_update(CanardInstance* ins, CanardRxTransfer* 
                            transfer->priority,
                            CanardResponse,
                            &buffer[0],
-                           total_size);
+                           total_size,
+                           canfd);
 
     printf("Started firmware update\n");
 
@@ -552,7 +564,7 @@ static void send_firmware_read(void)
     pkt.offset = fwupdate.offset;
     memcpy(pkt.path.path.data, fwupdate.path, pkt.path.path.len);
 
-    uint16_t total_size = uavcan_protocol_file_ReadRequest_encode(&pkt, buffer);
+    uint16_t total_size = uavcan_protocol_file_ReadRequest_encode(&pkt, buffer, !canfd);
 
     canardRequestOrRespond(&canard,
 			   fwupdate.node_id,
@@ -562,7 +574,8 @@ static void send_firmware_read(void)
                            CANARD_TRANSFER_PRIORITY_HIGH,
                            CanardRequest,
                            &buffer[0],
-                           total_size);
+                           total_size,
+                           canfd);
 }
 
 /*
@@ -737,7 +750,7 @@ static void send_NodeStatus(void)
 	node_status.mode = UAVCAN_PROTOCOL_NODESTATUS_MODE_SOFTWARE_UPDATE;
     }
 
-    uint32_t len = uavcan_protocol_NodeStatus_encode(&node_status, buffer);
+    uint32_t len = uavcan_protocol_NodeStatus_encode(&node_status, buffer, !canfd);
 
     // we need a static variable for the transfer ID. This is
     // incremeneted on each transfer, allowing for detection of packet
@@ -750,7 +763,8 @@ static void send_NodeStatus(void)
                     &transfer_id,
                     CANARD_TRANSFER_PRIORITY_LOW,
                     buffer,
-                    len);
+                    len,
+                    canfd);
 }
 
 /*
@@ -787,7 +801,7 @@ static void send_ServoStatus(void)
         pkt.speed = 0.12; // m/s or rad/s
         pkt.power_rating_pct = 17;
 
-        uint32_t len = uavcan_equipment_actuator_Status_encode(&pkt, buffer);
+        uint32_t len = uavcan_equipment_actuator_Status_encode(&pkt, buffer, !canfd);
 
         // we need a static variable for the transfer ID. This is
         // incremeneted on each transfer, allowing for detection of packet
@@ -800,7 +814,8 @@ static void send_ServoStatus(void)
                         &transfer_id,
                         CANARD_TRANSFER_PRIORITY_LOW,
                         buffer,
-                        len);
+                        len,
+                        canfd);
     }
 }
 
@@ -848,19 +863,20 @@ int main(int argc, char** argv)
     if (argc < 2) {
         (void)fprintf(stderr,
                       "Usage:\n"
-                      "\t%s <can iface name>\n",
+                      "\t%s <can iface name> [canfd]\n",
                       argv[0]);
         return 1;
     }
 
     fwupdate.fd = -1;
+    canfd = argc > 2 && strcmp(argv[2], "canfd") == 0;
 
     /*
      * Initializing the CAN backend driver
      */
     LinuxCANInstance can;
     const char* const can_iface_name = argv[1];
-    int16_t res = LinuxCANInit(&can, can_iface_name);
+    int16_t res = LinuxCANInit(&can, can_iface_name, canfd);
     if (res < 0) {
         (void)fprintf(stderr, "Failed to open CAN iface '%s'\n", can_iface_name);
         return 1;

@@ -208,10 +208,12 @@ int16_t socketcanReceive(SocketCANInstance* ins, CanardCANFrame* out_frame, int3
         {
             return getErrorCode();
         }
-        if ((size_t)nbytes != sizeof(receive_frame))
+        // classic frames are also received on a CAN FD socket
+        if ((size_t)nbytes != CAN_MTU && (size_t)nbytes != CANFD_MTU)
         {
             return -EIO;
         }
+        out_frame->canfd = ((size_t)nbytes == CANFD_MTU);
 
         if (receive_frame.len > CANFD_MAX_DLEN)           // Appeasing Coverity Scan
         {
@@ -244,6 +246,9 @@ int16_t socketcanReceive(SocketCANInstance* ins, CanardCANFrame* out_frame, int3
         out_frame->id = receive_frame.can_id;               // TODO: Map flags properly
         out_frame->data_len = receive_frame.can_dlc;
         memcpy(out_frame->data, &receive_frame.data, receive_frame.can_dlc);
+#if CANARD_ENABLE_CANFD
+        out_frame->canfd = false;
+#endif
     }
 
     // assume a single interface
